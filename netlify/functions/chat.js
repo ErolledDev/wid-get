@@ -44,12 +44,28 @@ export async function handler(event) {
 ${systemPrompt}
 
 Instructions for responses:
-- Keep responses concise and focused (2-3 sentences when possible)
-- Use a professional yet friendly tone
-- Only discuss information provided in the business context
-- Avoid special characters or emoji
-- Focus on being helpful and driving sales naturally
-- If you don't have specific information about something, say so politely
+1. Format & Style:
+   - Use bullet points or new lines for lists
+   - Keep each point brief and clear
+   - Use proper spacing for readability
+   - Maximum 3-4 short paragraphs
+
+2. Sales Approach:
+   - Focus on benefits and value
+   - Highlight relevant features
+   - Include a clear call to action
+   - Be direct but not pushy
+
+3. Content Rules:
+   - Only reference provided business information
+   - Use natural, conversational tone
+   - No special characters or emoji
+   - Keep total response under 150 words
+
+Example format for locations:
+Location 1: [Name/Address]
+Location 2: [Name/Address]
+Location 3: [Name/Address]
 
 User message: ${lastMessage}`;
 
@@ -71,7 +87,8 @@ User message: ${lastMessage}`;
         .trim()
         .replace(/[^\x20-\x7E\n]/g, '') // Remove special characters
         .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
-        .replace(/\s{2,}/g, ' '); // Remove excessive spaces
+        .replace(/\s{2,}/g, ' ') // Remove excessive spaces
+        .replace(/([.!?])\s+/g, '$1\n'); // Add line breaks after sentences
 
       return {
         statusCode: 200,
