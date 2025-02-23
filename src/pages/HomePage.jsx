@@ -14,12 +14,15 @@ export default function HomePage({ session }) {
     try {
       setLoading(true);
       setError(null);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       });
+      
       if (error) throw error;
-      navigate('/dashboard');
+      if (data.user) {
+        navigate('/dashboard');
+      }
     } catch (error) {
       setError(error.message);
     } finally {
@@ -32,12 +35,22 @@ export default function HomePage({ session }) {
     try {
       setLoading(true);
       setError(null);
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: email.split('@')[0]
+          }
+        }
       });
+      
       if (error) throw error;
-      alert('Check your email for the confirmation link!');
+      if (data.user) {
+        alert('Sign up successful! You can now sign in.');
+        setEmail('');
+        setPassword('');
+      }
     } catch (error) {
       setError(error.message);
     } finally {
@@ -61,7 +74,7 @@ export default function HomePage({ session }) {
             Sign in to manage your chat widget
           </p>
         </div>
-        <form className="mt-8 space-y-6">
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           {error && (
             <div className="text-red-600 text-sm text-center">{error}</div>
           )}
@@ -84,6 +97,7 @@ export default function HomePage({ session }) {
                 onChange={(e) => setPassword(e.target.value)}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
+                minLength={6}
               />
             </div>
           </div>
@@ -91,11 +105,10 @@ export default function HomePage({ session }) {
           <div className="flex gap-4">
             <button
               type="submit"
-              onClick={handleLogin}
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Sign in
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
             <button
               type="button"
@@ -103,7 +116,7 @@ export default function HomePage({ session }) {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
-              Sign up
+              {loading ? 'Signing up...' : 'Sign up'}
             </button>
           </div>
         </form>
