@@ -44,11 +44,15 @@ export async function handler(event) {
 ${systemPrompt}
 
 Instructions for responses:
-1. Format & Style:
-   - Use bullet points or new lines for lists
-   - Keep each point brief and clear
-   - Use proper spacing for readability
-   - Maximum 1-3 short paragraphs
+1. Response Format:
+   - Your response must be in valid JSON format
+   - Use the following structure:
+     {
+       "response": "your actual response here"
+     }
+   - Keep responses under 100 words
+   - Use only plain text in responses
+   - Avoid special characters, emojis, or formatting
 
 2. Sales Approach:
    - Focus on benefits and value
@@ -59,14 +63,10 @@ Instructions for responses:
 3. Content Rules:
    - Only reference provided business information
    - Use natural, conversational tone
-   - No special characters or emoji
    - Keep total response under 100 words
-   - Dont just copy the informations paste it to reply to the client but instead make it brief and concise 
+   - Make responses brief and concise
 
-Example format for locations:
-Location 1: [Name/Address]
-Location 2: [Name/Address]
-Location 3: [Name/Address]
+Remember: Always format your response as JSON with a "response" key.
 
 User message: ${lastMessage}`;
 
@@ -83,20 +83,33 @@ User message: ${lastMessage}`;
       const response = await result.response;
       let text = response.text();
 
-      // Clean up the response
-      text = text
-        .trim()
-        .replace(/[^\x20-\x7E\n]/g, '') // Remove special characters
-        .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
-        .replace(/\s{2,}/g, ' ') // Remove excessive spaces
-        .replace(/([.!?])\s+/g, '$1\n'); // Add line breaks after sentences
+      // Try to parse the response as JSON
+      let cleanedResponse;
+      try {
+        // First, try to parse it directly
+        const jsonResponse = JSON.parse(text);
+        cleanedResponse = jsonResponse.response;
+      } catch (e) {
+        // If parsing fails, clean the text and create our own JSON response
+        cleanedResponse = text
+          .trim()
+          .replace(/[^\x20-\x7E\n]/g, '') // Remove special characters
+          .replace(/\n{3,}/g, '\n\n') // Remove excessive newlines
+          .replace(/\s{2,}/g, ' ') // Remove excessive spaces
+          .replace(/([.!?])\s+/g, '$1\n'); // Add line breaks after sentences
+      }
+
+      // Ensure the response is clean and properly formatted
+      cleanedResponse = cleanedResponse
+        .replace(/[^\x20-\x7E\n]/g, '')
+        .trim();
 
       return {
         statusCode: 200,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ response: text })
+        body: JSON.stringify({ response: cleanedResponse })
       };
     } catch (modelError) {
       console.error('Gemini API Error:', modelError);

@@ -128,6 +128,7 @@ export class ChatWidget {
         padding: 10px 14px;
         border-radius: 14px;
         margin: 4px 0;
+        white-space: pre-wrap;
       }
 
       .message.user {
@@ -377,16 +378,21 @@ export class ChatWidget {
 
       const data = await response.json();
       
+      // Clean the response text
+      const cleanedResponse = data.response
+        .replace(/[^\x20-\x7E\n]/g, '') // Remove special characters
+        .trim();
+      
       // Add AI response
       this.addMessage({
         role: 'assistant',
-        content: data.response
+        content: cleanedResponse
       });
 
       // Add to history
       this.messages.push(
         { role: 'user', content },
-        { role: 'assistant', content: data.response }
+        { role: 'assistant', content: cleanedResponse }
       );
     } catch (error) {
       console.error('Error:', error);
