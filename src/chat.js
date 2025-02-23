@@ -1,5 +1,5 @@
 // Chat widget implementation
-export class ChatWidget {
+class ChatWidget {
   constructor(options = {}) {
     // Ensure this is only initialized in browser environment
     if (typeof window === 'undefined') return;
@@ -330,3 +330,5 @@ export class ChatWidget {
 if (typeof window !== 'undefined') {
   window.ChatWidget = ChatWidget;
 }
+
+export { ChatWidget };

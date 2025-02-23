@@ -13,7 +13,7 @@ export default defineConfig({
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name].[hash].js',
         assetFileNames: 'assets/[name].[hash].[ext]',
-        inlineDynamicImports: false
+        format: 'es'
       }
     },
     target: 'es2015',
