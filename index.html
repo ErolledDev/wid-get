@@ -9,15 +9,5 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <!-- Add widget for testing -->
-    <script type="module">
-      import { ChatWidget } from '/src/chat.js';
-      // Initialize widget with a test user ID
-      window.addEventListener('load', () => {
-        new ChatWidget({
-          uid: 'test-user-id'
-        });
-      });
-    </script>
   </body>
 </html>
