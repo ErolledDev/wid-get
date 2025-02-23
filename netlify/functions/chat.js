@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Gemini with API key, gracefully handle if not available in dev
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy-key-for-dev');
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
@@ -14,6 +15,16 @@ export async function handler(event) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Invalid messages format. Expected an array.' })
+      };
+    }
+
+    // Only proceed with API call if we have a valid API key
+    if (!process.env.GEMINI_API_KEY) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          response: "This is a development response. The actual AI responses will work when deployed to Netlify."
+        })
       };
     }
 
