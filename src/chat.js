@@ -10,6 +10,8 @@ class ChatWidget {
       return;
     }
 
+    console.log('Initializing ChatWidget with options:', options); // Debug log
+
     this.options = {
       position: 'bottom-right',
       primaryColor: '#2563eb',
@@ -43,7 +45,9 @@ class ChatWidget {
 
   async fetchSettingsWithRetry() {
     try {
-      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${this.uid}`, {
+      console.log('Fetching settings for uid:', this.uid); // Debug log
+
+      const response = await fetch(`/.netlify/functions/settings?uid=${this.uid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -55,6 +59,8 @@ class ChatWidget {
       }
       
       const settings = await response.json();
+      console.log('Received settings:', settings); // Debug log
+
       this.options = {
         ...this.options,
         primaryColor: settings.primary_color || this.options.primaryColor,
@@ -97,6 +103,7 @@ class ChatWidget {
   }
 
   createBaseWidget() {
+    console.log('Creating base widget'); // Debug log
     this.widget = document.createElement('div');
     this.widget.className = 'chat-widget minimized';
     document.body.appendChild(this.widget);
@@ -105,6 +112,7 @@ class ChatWidget {
   init() {
     if (typeof window === 'undefined' || this.initialized) return;
     
+    console.log('Initializing widget'); // Debug log
     this.createStyles();
     this.createWidgetContent();
     this.attachEventListeners();
@@ -148,6 +156,7 @@ class ChatWidget {
   }
 
   createStyles() {
+    console.log('Creating styles'); // Debug log
     const styles = document.createElement('style');
     styles.id = 'chat-widget-styles';
     styles.textContent = `
@@ -367,6 +376,7 @@ class ChatWidget {
   }
 
   createWidgetContent() {
+    console.log('Creating widget content'); // Debug log
     this.widget.innerHTML = `
       <div class="chat-header">
         <span>${this.options.businessName}</span>
@@ -412,6 +422,7 @@ class ChatWidget {
   }
 
   attachEventListeners() {
+    console.log('Attaching event listeners'); // Debug log
     this.sendButton.addEventListener('click', () => this.sendMessage());
     this.input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -476,7 +487,8 @@ class ChatWidget {
     this.showTypingIndicator();
 
     try {
-      const response = await fetch('https://chatwidgetai.netlify.app/.netlify/functions/chat', {
+      console.log('Sending message:', content); // Debug log
+      const response = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -500,6 +512,7 @@ class ChatWidget {
       }
 
       const data = await response.json();
+      console.log('Received response:', data); // Debug log
       
       // Add AI response
       this.addMessage({
@@ -528,6 +541,7 @@ class ChatWidget {
   }
 
   addMessage({ role, content }) {
+    console.log('Adding message:', { role, content }); // Debug log
     const messageEl = document.createElement('div');
     messageEl.className = `message ${role}`;
     messageEl.textContent = content;
