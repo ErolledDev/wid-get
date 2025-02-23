@@ -10,8 +10,6 @@ class ChatWidget {
       return;
     }
 
-    console.log('Initializing ChatWidget with options:', options); // Debug log
-
     this.options = {
       position: 'bottom-right',
       primaryColor: '#2563eb',
@@ -25,15 +23,12 @@ class ChatWidget {
     this.initialized = false;
     this.uid = options.uid;
     this.unreadCount = 0;
-    this.retryCount = 0;
-    this.maxRetries = 3;
-    this.retryDelay = 1000; // Start with 1 second delay
 
     // Create base widget structure
     this.createBaseWidget();
     
-    // Fetch settings from API with retry logic
-    this.fetchSettingsWithRetry();
+    // Fetch settings from API
+    this.fetchSettings();
 
     // Auto-open after delay
     setTimeout(() => {
@@ -43,15 +38,14 @@ class ChatWidget {
     }, 3000);
   }
 
-  async fetchSettingsWithRetry() {
+  async fetchSettings() {
     try {
-      console.log('Fetching settings for uid:', this.uid); // Debug log
-
-      const response = await fetch(`/.netlify/functions/settings?uid=${this.uid}`, {
+      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${this.uid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        mode: 'cors'
       });
 
       if (!response.ok) {
@@ -59,8 +53,6 @@ class ChatWidget {
       }
       
       const settings = await response.json();
-      console.log('Received settings:', settings); // Debug log
-
       this.options = {
         ...this.options,
         primaryColor: settings.primary_color || this.options.primaryColor,
@@ -68,9 +60,6 @@ class ChatWidget {
         businessInfo: settings.business_info || this.options.businessInfo,
         salesRepName: settings.sales_rep_name || this.options.salesRepName
       };
-      
-      // Reset retry count on success
-      this.retryCount = 0;
       
       // Update or initialize the widget
       if (this.initialized) {
@@ -81,29 +70,14 @@ class ChatWidget {
       }
     } catch (error) {
       console.error('Error fetching widget settings:', error);
-      
-      // Implement exponential backoff for retries
-      if (this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
-        
-        console.log(`Retrying in ${delay}ms... (Attempt ${this.retryCount} of ${this.maxRetries})`);
-        
-        setTimeout(() => {
-          this.fetchSettingsWithRetry();
-        }, delay);
-      } else {
-        // Initialize with defaults if all retries fail
-        console.warn('Failed to fetch settings after all retries, initializing with defaults');
-        if (!this.initialized) {
-          this.init();
-        }
+      // Initialize with defaults if settings fetch fails
+      if (!this.initialized) {
+        this.init();
       }
     }
   }
 
   createBaseWidget() {
-    console.log('Creating base widget'); // Debug log
     this.widget = document.createElement('div');
     this.widget.className = 'chat-widget minimized';
     document.body.appendChild(this.widget);
@@ -112,7 +86,6 @@ class ChatWidget {
   init() {
     if (typeof window === 'undefined' || this.initialized) return;
     
-    console.log('Initializing widget'); // Debug log
     this.createStyles();
     this.createWidgetContent();
     this.attachEventListeners();
@@ -156,7 +129,6 @@ class ChatWidget {
   }
 
   createStyles() {
-    console.log('Creating styles'); // Debug log
     const styles = document.createElement('style');
     styles.id = 'chat-widget-styles';
     styles.textContent = `
@@ -376,7 +348,6 @@ class ChatWidget {
   }
 
   createWidgetContent() {
-    console.log('Creating widget content'); // Debug log
     this.widget.innerHTML = `
       <div class="chat-header">
         <span>${this.options.businessName}</span>
@@ -422,7 +393,6 @@ class ChatWidget {
   }
 
   attachEventListeners() {
-    console.log('Attaching event listeners'); // Debug log
     this.sendButton.addEventListener('click', () => this.sendMessage());
     this.input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -483,24 +453,30 @@ class ChatWidget {
     // Add user message
     this.addMessage({ role: 'user', content });
 
+    // Prepare messages with business context
+    const messagesWithContext = [];
+    
+    // Add business context if available
+    if (this.options.businessInfo) {
+      messagesWithContext.push({
+        role: 'system',
+        content: `You are a sales assistant for the following business:\n${this.options.businessInfo}\n\nUse this information to help drive sales and assist customers effectively.${this.options.salesRepName ? `\n\nYour name is ${this.options.salesRepName}.` : ''}`
+      });
+    }
+
+    // Add conversation history
+    messagesWithContext.push(...this.messages);
+
     // Show typing indicator
     this.showTypingIndicator();
 
     try {
-      console.log('Sending message:', content); // Debug log
-      const response = await fetch('/.netlify/functions/chat', {
+      const response = await fetch('https://chatwidgetai.netlify.app/.netlify/functions/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messages: this.messages,
-          settings: {
-            businessName: this.options.businessName,
-            businessInfo: this.options.businessInfo,
-            salesRepName: this.options.salesRepName
-          }
-        }),
+        body: JSON.stringify({ messages: messagesWithContext }),
         mode: 'cors'
       });
 
@@ -512,7 +488,6 @@ class ChatWidget {
       }
 
       const data = await response.json();
-      console.log('Received response:', data); // Debug log
       
       // Add AI response
       this.addMessage({
@@ -541,7 +516,6 @@ class ChatWidget {
   }
 
   addMessage({ role, content }) {
-    console.log('Adding message:', { role, content }); // Debug log
     const messageEl = document.createElement('div');
     messageEl.className = `message ${role}`;
     messageEl.textContent = content;

@@ -1,25 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// CORS headers for all responses
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400',
-  'Content-Type': 'application/json'
-};
-
 export async function handler(event) {
+  // Add CORS headers for all responses
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+    'Content-Type': 'application/json'
+  };
+
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers: corsHeaders,
+      headers,
       body: ''
     };
   }
@@ -27,7 +27,7 @@ export async function handler(event) {
   if (event.httpMethod !== 'GET') {
     return { 
       statusCode: 405, 
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
@@ -36,7 +36,7 @@ export async function handler(event) {
   if (!uid) {
     return {
       statusCode: 400,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify({ error: 'Missing uid parameter' })
     };
   }
@@ -53,25 +53,22 @@ export async function handler(event) {
     if (!data) {
       return {
         statusCode: 404,
-        headers: corsHeaders,
+        headers,
         body: JSON.stringify({ error: 'Settings not found' })
       };
     }
 
     return {
       statusCode: 200,
-      headers: corsHeaders,
+      headers,
       body: JSON.stringify(data)
     };
   } catch (error) {
     console.error('Error fetching settings:', error);
     return {
       statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ 
-        error: 'Internal server error',
-        details: error.message 
-      })
+      headers,
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
 }

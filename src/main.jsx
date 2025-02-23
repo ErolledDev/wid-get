@@ -4,14 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 
-// More graceful environment variable handling
-const missingVars = [];
-if (!import.meta.env.VITE_SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
-if (!import.meta.env.VITE_SUPABASE_ANON_KEY) missingVars.push('VITE_SUPABASE_ANON_KEY');
-
-// Only show warning in development
-if (import.meta.env.MODE === 'development' && missingVars.length > 0) {
-  console.warn(`Missing environment variables: ${missingVars.join(', ')}`);
+// Ensure environment variables are available
+if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  console.error('Missing required environment variables. Please check your .env file.');
 }
 
 ReactDOM.createRoot(document.getElementById('app')).render(
