@@ -8,14 +8,7 @@ class ChatWidget {
     if (options.uid) {
       this.fetchSettings(options.uid);
     } else {
-      this.options = {
-        position: 'bottom-right',
-        primaryColor: '#2563eb',
-        businessName: 'AI Sales Assistant',
-        businessInfo: '',
-        ...options
-      };
-      this.init();
+      console.error('ChatWidget: uid is required');
     }
     
     this.messages = [];

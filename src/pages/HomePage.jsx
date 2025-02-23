@@ -19,16 +19,13 @@ export default function HomePage({ session }) {
     e.preventDefault();
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
       if (error) throw error;
-      if (data.user) {
-        toast.success('Successfully logged in!');
-        navigate('/dashboard');
-      }
+      toast.success('Successfully logged in!');
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -40,22 +37,15 @@ export default function HomePage({ session }) {
     e.preventDefault();
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
-        password,
-        options: {
-          data: {
-            full_name: email.split('@')[0]
-          }
-        }
+        password
       });
       
       if (error) throw error;
-      if (data.user) {
-        toast.success('Sign up successful! You can now sign in.');
-        setEmail('');
-        setPassword('');
-      }
+      toast.success('Sign up successful! You can now sign in.');
+      setEmail('');
+      setPassword('');
     } catch (error) {
       toast.error(error.message);
     } finally {
