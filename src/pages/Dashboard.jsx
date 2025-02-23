@@ -88,6 +88,7 @@ export default function Dashboard({ session }) {
       alert('Settings saved successfully!');
       setShowCode(true);
 
+      // Initialize widget for preview
       new ChatWidget(settings);
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -105,17 +106,20 @@ export default function Dashboard({ session }) {
   };
 
   const getWidgetCode = () => {
+    const settingsStr = JSON.stringify({
+      primaryColor: settings.primaryColor,
+      businessName: settings.businessName,
+      businessInfo: settings.businessInfo,
+      salesRepName: settings.salesRepName
+    }).replace(/"/g, '&quot;');
+
     return `<script>
   (function() {
     var script = document.createElement('script');
     script.src = 'https://chatwidgetai.netlify.app/chat.js';
     script.onload = function() {
-      new ChatWidget({
-        primaryColor: '${settings.primaryColor}',
-        businessName: '${settings.businessName}',
-        businessInfo: '${settings.businessInfo}',
-        salesRepName: '${settings.salesRepName}'
-      });
+      var settings = JSON.parse('${settingsStr}');
+      window.chatWidget = new ChatWidget(settings);
     };
     document.head.appendChild(script);
   })();

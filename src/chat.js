@@ -1,6 +1,9 @@
 // Standalone chat widget script
-export class ChatWidget {
+class ChatWidget {
   constructor(options = {}) {
+    // Ensure this is only initialized in browser environment
+    if (typeof window === 'undefined') return;
+    
     this.options = {
       position: 'bottom-right',
       primaryColor: '#2563eb',
@@ -15,6 +18,9 @@ export class ChatWidget {
   }
 
   init() {
+    // Only initialize if we're in a browser environment
+    if (typeof window === 'undefined') return;
+    
     this.createStyles();
     this.createWidget();
     this.attachEventListeners();
@@ -37,7 +43,7 @@ export class ChatWidget {
         overflow: hidden;
         font-family: system-ui, -apple-system, sans-serif;
         transition: height 0.3s ease;
-        z-index: 9999;
+        z-index: 999999;
       }
 
       .chat-widget.minimized {
@@ -320,7 +326,10 @@ export class ChatWidget {
   }
 }
 
-// Initialize the widget if it's loaded as a script
+// Make ChatWidget available globally
 if (typeof window !== 'undefined') {
   window.ChatWidget = ChatWidget;
 }
+
+// Also export for module usage
+export { ChatWidget }
