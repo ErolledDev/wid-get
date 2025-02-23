@@ -9,9 +9,9 @@ export async function handler(event) {
   // Add CORS headers for all responses
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
+    'Access-Control-Max-Age': '86400',
     'Content-Type': 'application/json'
   };
 
