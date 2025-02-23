@@ -98,6 +98,12 @@ export class ChatWidget {
       .chat-input button:hover {
         opacity: 0.9;
       }
+
+      .error-message {
+        color: #ef4444;
+        font-size: 0.875rem;
+        margin: 4px 0;
+      }
     `;
     document.head.appendChild(styles);
   }
@@ -159,6 +165,11 @@ export class ChatWidget {
         body: JSON.stringify({ messages: this.messages }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response from server');
+      }
+
       const data = await response.json();
       
       // Add AI response
@@ -176,7 +187,7 @@ export class ChatWidget {
       console.error('Error:', error);
       this.addMessage({
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.'
+        content: `Error: ${error.message}. Please try again.`
       });
     }
   }
