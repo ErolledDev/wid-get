@@ -4,8 +4,28 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy-key-for-dev');
 
 export async function handler(event) {
+  // Add CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*', // In production, replace with specific domains
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
+  // Handle preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers,
+      body: ''
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { 
+      statusCode: 405, 
+      headers,
+      body: 'Method Not Allowed' 
+    };
   }
 
   try {
@@ -14,6 +34,7 @@ export async function handler(event) {
     if (!messages || !Array.isArray(messages)) {
       return {
         statusCode: 400,
+        headers,
         body: JSON.stringify({ error: 'Invalid messages format. Expected an array.' })
       };
     }
@@ -22,6 +43,7 @@ export async function handler(event) {
     if (!process.env.GEMINI_API_KEY) {
       return {
         statusCode: 200,
+        headers,
         body: JSON.stringify({
           response: "This is a development response. The actual AI responses will work when deployed to Netlify."
         })
@@ -117,15 +139,14 @@ User message: ${lastMessage}`;
 
       return {
         statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ response: cleanedResponse })
       };
     } catch (modelError) {
       console.error('Gemini API Error:', modelError);
       return {
         statusCode: 500,
+        headers,
         body: JSON.stringify({ 
           error: 'Error communicating with Gemini API',
           details: modelError.message 
@@ -136,6 +157,7 @@ User message: ${lastMessage}`;
     console.error('Function Error:', error);
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ 
         error: 'Internal server error',
         details: error.message 

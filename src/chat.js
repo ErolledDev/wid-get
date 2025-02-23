@@ -285,6 +285,7 @@ class ChatWidget {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ messages: messagesWithContext }),
+        mode: 'cors' // Explicitly set CORS mode
       });
 
       // Hide typing indicator
