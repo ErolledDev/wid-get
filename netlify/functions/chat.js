@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini with API key, with better error handling
+// Initialize Gemini with API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // CORS headers for all responses
@@ -31,7 +31,7 @@ export async function handler(event) {
   }
 
   try {
-    const { messages } = JSON.parse(event.body);
+    const { messages, settings } = JSON.parse(event.body);
     
     if (!messages || !Array.isArray(messages)) {
       return {
@@ -73,10 +73,15 @@ export async function handler(event) {
     const lastMessage = messages[messages.length - 1].content;
 
     try {
-      // Add specific instructions for AI behavior
-      const systemPrompt = messages.find(msg => msg.role === 'system')?.content || '';
-      const enhancedPrompt = `
-${systemPrompt}
+      // Create dynamic system prompt based on settings
+      const businessContext = settings ? `
+Business Name: ${settings.businessName}
+${settings.salesRepName ? `Sales Representative: ${settings.salesRepName}` : ''}
+${settings.businessInfo ? `\nBusiness Information:\n${settings.businessInfo}` : ''}
+` : '';
+
+      const systemPrompt = `
+${businessContext}
 
 Instructions for responses:
 1. Response Format:
@@ -94,6 +99,7 @@ Instructions for responses:
    - Only reference provided business information
    - Use natural, conversational tone
    - Keep responses brief and concise
+   ${settings?.salesRepName ? `\nRespond as ${settings.salesRepName} from ${settings.businessName}` : ''}
 
 User message: ${lastMessage}`;
 
@@ -106,7 +112,7 @@ User message: ${lastMessage}`;
       });
 
       // Send the message and get the response
-      const result = await chat.sendMessage(enhancedPrompt);
+      const result = await chat.sendMessage(systemPrompt);
       const response = await result.response;
       const text = response.text()
         .trim()

@@ -25,16 +25,7 @@ export default defineConfig({
     },
     target: 'es2015',
     minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: process.env.NODE_ENV === 'production',
-        drop_debugger: true
-      }
-    },
-    sourcemap: process.env.NODE_ENV !== 'production',
-    cssMinify: true,
-    reportCompressedSize: true,
-    chunkSizeWarningLimit: 1000
+    sourcemap: process.env.NODE_ENV !== 'production'
   },
   server: {
     port: 3000,

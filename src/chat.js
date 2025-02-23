@@ -472,20 +472,6 @@ class ChatWidget {
     // Add user message
     this.addMessage({ role: 'user', content });
 
-    // Prepare messages with business context
-    const messagesWithContext = [];
-    
-    // Add business context if available
-    if (this.options.businessInfo) {
-      messagesWithContext.push({
-        role: 'system',
-        content: `You are a sales assistant for the following business:\n${this.options.businessInfo}\n\nUse this information to help drive sales and assist customers effectively.${this.options.salesRepName ? `\n\nYour name is ${this.options.salesRepName}.` : ''}`
-      });
-    }
-
-    // Add conversation history
-    messagesWithContext.push(...this.messages);
-
     // Show typing indicator
     this.showTypingIndicator();
 
@@ -495,7 +481,14 @@ class ChatWidget {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: messagesWithContext }),
+        body: JSON.stringify({
+          messages: this.messages,
+          settings: {
+            businessName: this.options.businessName,
+            businessInfo: this.options.businessInfo,
+            salesRepName: this.options.salesRepName
+          }
+        }),
         mode: 'cors'
       });
 
