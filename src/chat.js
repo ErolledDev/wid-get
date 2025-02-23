@@ -4,6 +4,7 @@ export class ChatWidget {
       position: 'bottom-right',
       primaryColor: '#2563eb',
       businessName: 'AI Sales Assistant',
+      businessInfo: '',
       ...options
     };
     
@@ -40,6 +41,59 @@ export class ChatWidget {
         color: white;
         padding: 16px;
         font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .settings-button {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 4px;
+        font-size: 1.2em;
+      }
+
+      .settings-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: white;
+        padding: 16px;
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .settings-panel.active {
+        display: flex;
+      }
+
+      .settings-panel h2 {
+        margin: 0;
+        color: ${this.options.primaryColor};
+      }
+
+      .settings-panel textarea {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        resize: none;
+        font-family: inherit;
+      }
+
+      .settings-panel button {
+        background: ${this.options.primaryColor};
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
       }
 
       .chat-messages {
@@ -113,7 +167,15 @@ export class ChatWidget {
     this.widget.className = 'chat-widget';
 
     this.widget.innerHTML = `
-      <div class="chat-header">${this.options.businessName}</div>
+      <div class="chat-header">
+        ${this.options.businessName}
+        <button class="settings-button">⚙️</button>
+      </div>
+      <div class="settings-panel">
+        <h2>Business Information</h2>
+        <textarea placeholder="Enter your business information, products, services, and any specific sales instructions for the AI...">${this.options.businessInfo}</textarea>
+        <button>Save Settings</button>
+      </div>
       <div class="chat-messages"></div>
       <div class="chat-input">
         <input type="text" placeholder="Type your message..." />
@@ -125,7 +187,11 @@ export class ChatWidget {
 
     this.messagesContainer = this.widget.querySelector('.chat-messages');
     this.input = this.widget.querySelector('input');
-    this.sendButton = this.widget.querySelector('button');
+    this.sendButton = this.widget.querySelector('button:not(.settings-button)');
+    this.settingsButton = this.widget.querySelector('.settings-button');
+    this.settingsPanel = this.widget.querySelector('.settings-panel');
+    this.settingsTextarea = this.widget.querySelector('textarea');
+    this.settingsSaveButton = this.settingsPanel.querySelector('button');
 
     // Add initial greeting
     this.addMessage({
@@ -141,6 +207,26 @@ export class ChatWidget {
         this.sendMessage();
       }
     });
+
+    // Settings panel events
+    this.settingsButton.addEventListener('click', () => {
+      this.settingsPanel.classList.toggle('active');
+    });
+
+    this.settingsSaveButton.addEventListener('click', () => {
+      this.options.businessInfo = this.settingsTextarea.value;
+      this.settingsPanel.classList.remove('active');
+      
+      // Clear chat history and start fresh with new business context
+      this.messages = [];
+      this.messagesContainer.innerHTML = '';
+      
+      // Add new greeting with business context
+      this.addMessage({
+        role: 'assistant',
+        content: 'Hello! I\'ve been updated with your business information. How can I help you today?'
+      });
+    });
   }
 
   async sendMessage() {
@@ -153,8 +239,19 @@ export class ChatWidget {
     // Add user message
     this.addMessage({ role: 'user', content });
 
-    // Add messages to history
-    this.messages.push({ role: 'user', content });
+    // Prepare messages with business context
+    const messagesWithContext = [];
+    
+    // Add business context if available
+    if (this.options.businessInfo) {
+      messagesWithContext.push({
+        role: 'system',
+        content: `You are a sales assistant for the following business:\n${this.options.businessInfo}\n\nUse this information to help drive sales and assist customers effectively.`
+      });
+    }
+
+    // Add conversation history
+    messagesWithContext.push(...this.messages, { role: 'user', content });
 
     try {
       const response = await fetch('/.netlify/functions/chat', {
@@ -162,7 +259,7 @@ export class ChatWidget {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: this.messages }),
+        body: JSON.stringify({ messages: messagesWithContext }),
       });
 
       if (!response.ok) {
@@ -179,10 +276,10 @@ export class ChatWidget {
       });
 
       // Add to history
-      this.messages.push({
-        role: 'assistant',
-        content: data.response
-      });
+      this.messages.push(
+        { role: 'user', content },
+        { role: 'assistant', content: data.response }
+      );
     } catch (error) {
       console.error('Error:', error);
       this.addMessage({
