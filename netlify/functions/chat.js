@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini with API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy-key-for-dev');
+// Initialize Gemini with API key, with better error handling
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -41,13 +41,13 @@ export async function handler(event) {
       };
     }
 
-    // Only proceed with API call if we have a valid API key
+    // Check for valid API key
     if (!process.env.GEMINI_API_KEY) {
       return {
-        statusCode: 200,
+        statusCode: 500,
         headers: corsHeaders,
         body: JSON.stringify({
-          response: "This is a development response. The actual AI responses will work when deployed to Netlify."
+          error: 'Missing Gemini API key. Please check your environment variables.'
         })
       };
     }
@@ -126,7 +126,7 @@ User message: ${lastMessage}`;
         statusCode: 500,
         headers: corsHeaders,
         body: JSON.stringify({ 
-          error: 'Error communicating with Gemini API',
+          error: 'Error communicating with Gemini API. Please check your API key and try again.',
           details: modelError.message 
         })
       };
