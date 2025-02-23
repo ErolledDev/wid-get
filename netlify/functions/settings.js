@@ -12,6 +12,7 @@ export async function handler(event) {
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
+    'Content-Type': 'application/json'
   };
 
   // Handle preflight requests

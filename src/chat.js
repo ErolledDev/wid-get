@@ -14,27 +14,30 @@ class ChatWidget {
       position: 'bottom-right',
       primaryColor: '#2563eb',
       businessName: 'AI Sales Assistant',
-      businessInfo: ''
+      businessInfo: '',
+      salesRepName: ''
     };
     
     this.messages = [];
     this.isMinimized = false;
     this.initialized = false;
+    this.uid = options.uid;
 
     // Create base widget structure
     this.createBaseWidget();
     
     // Fetch settings from API
-    this.fetchSettings(options.uid);
+    this.fetchSettings();
   }
 
-  async fetchSettings(uid) {
+  async fetchSettings() {
     try {
-      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${uid}`, {
+      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${this.uid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        mode: 'cors'
       });
 
       if (!response.ok) {
@@ -44,10 +47,10 @@ class ChatWidget {
       const settings = await response.json();
       this.options = {
         ...this.options,
-        primaryColor: settings.primary_color,
-        businessName: settings.business_name,
-        businessInfo: settings.business_info,
-        salesRepName: settings.sales_rep_name
+        primaryColor: settings.primary_color || this.options.primaryColor,
+        businessName: settings.business_name || this.options.businessName,
+        businessInfo: settings.business_info || this.options.businessInfo,
+        salesRepName: settings.sales_rep_name || this.options.salesRepName
       };
       
       // Update or initialize the widget
@@ -301,9 +304,13 @@ class ChatWidget {
     this.typingIndicator = this.widget.querySelector('.typing-indicator');
 
     // Add initial greeting
+    const greeting = this.options.salesRepName 
+      ? `Hello! I'm ${this.options.salesRepName} from ${this.options.businessName}. How can I help you today?`
+      : `Hello! Welcome to ${this.options.businessName}. How can I help you today?`;
+    
     this.addMessage({
       role: 'assistant',
-      content: `Hello! Welcome to ${this.options.businessName}. How can I help you today?`
+      content: greeting
     });
   }
 
@@ -414,6 +421,11 @@ class ChatWidget {
     messageEl.textContent = content;
     this.messagesContainer.appendChild(messageEl);
     this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+
+    // Update message styling if it's a user message
+    if (role === 'user') {
+      messageEl.style.backgroundColor = this.options.primaryColor;
+    }
   }
 }
 
