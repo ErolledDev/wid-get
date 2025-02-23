@@ -4,56 +4,122 @@ class ChatWidget {
     // Ensure this is only initialized in browser environment
     if (typeof window === 'undefined') return;
     
-    // If uid is provided, fetch settings from API
-    if (options.uid) {
-      this.fetchSettings(options.uid);
-    } else {
-      console.error('ChatWidget: uid is required');
+    // Require uid parameter
+    if (!options.uid) {
+      console.error('ChatWidget: uid parameter is required');
+      return;
     }
+
+    this.options = {
+      position: 'bottom-right',
+      primaryColor: '#2563eb',
+      businessName: 'AI Sales Assistant',
+      businessInfo: ''
+    };
     
     this.messages = [];
     this.isMinimized = false;
+    this.initialized = false;
+
+    // Create base widget structure
+    this.createBaseWidget();
+    
+    // Fetch settings from API
+    this.fetchSettings(options.uid);
   }
 
   async fetchSettings(uid) {
     try {
-      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${uid}`);
-      if (!response.ok) throw new Error('Failed to fetch settings');
+      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${uid}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const settings = await response.json();
       this.options = {
-        position: 'bottom-right',
+        ...this.options,
         primaryColor: settings.primary_color,
         businessName: settings.business_name,
         businessInfo: settings.business_info,
         salesRepName: settings.sales_rep_name
       };
       
-      this.init();
+      // Update or initialize the widget
+      if (this.initialized) {
+        this.updateWidgetStyles();
+        this.updateWidgetContent();
+      } else {
+        this.init();
+      }
     } catch (error) {
       console.error('Error fetching widget settings:', error);
       // Initialize with defaults if settings fetch fails
-      this.options = {
-        position: 'bottom-right',
-        primaryColor: '#2563eb',
-        businessName: 'AI Sales Assistant',
-        businessInfo: ''
-      };
-      this.init();
+      if (!this.initialized) {
+        this.init();
+      }
     }
   }
 
+  createBaseWidget() {
+    this.widget = document.createElement('div');
+    this.widget.className = 'chat-widget';
+    document.body.appendChild(this.widget);
+  }
+
   init() {
-    // Only initialize if we're in a browser environment
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || this.initialized) return;
     
     this.createStyles();
-    this.createWidget();
+    this.createWidgetContent();
     this.attachEventListeners();
+    this.initialized = true;
+  }
+
+  updateWidgetStyles() {
+    // Remove old styles
+    const oldStyle = document.getElementById('chat-widget-styles');
+    if (oldStyle) {
+      oldStyle.remove();
+    }
+    // Create new styles
+    this.createStyles();
+  }
+
+  updateWidgetContent() {
+    // Update header text
+    const headerText = this.widget.querySelector('.chat-header span');
+    if (headerText) {
+      headerText.textContent = this.options.businessName;
+    }
+
+    // Update button colors
+    const sendButton = this.widget.querySelector('.chat-input button');
+    if (sendButton) {
+      sendButton.style.backgroundColor = this.options.primaryColor;
+    }
+
+    // Update header background
+    const header = this.widget.querySelector('.chat-header');
+    if (header) {
+      header.style.backgroundColor = this.options.primaryColor;
+    }
+
+    // Update user message bubbles
+    const userMessages = this.widget.querySelectorAll('.message.user');
+    userMessages.forEach(msg => {
+      msg.style.backgroundColor = this.options.primaryColor;
+    });
   }
 
   createStyles() {
     const styles = document.createElement('style');
+    styles.id = 'chat-widget-styles';
     styles.textContent = `
       .chat-widget {
         position: fixed;
@@ -85,6 +151,7 @@ class ChatWidget {
         justify-content: space-between;
         align-items: center;
         cursor: pointer;
+        transition: background-color 0.3s ease;
       }
 
       .minimize-button {
@@ -114,6 +181,7 @@ class ChatWidget {
         word-wrap: break-word;
         overflow-wrap: break-word;
         line-height: 1.4;
+        transition: background-color 0.3s ease;
       }
 
       .message.user {
@@ -197,6 +265,7 @@ class ChatWidget {
         border-radius: 6px;
         cursor: pointer;
         font-weight: 500;
+        transition: background-color 0.3s ease;
       }
 
       .chat-input button:hover {
@@ -206,10 +275,7 @@ class ChatWidget {
     document.head.appendChild(styles);
   }
 
-  createWidget() {
-    this.widget = document.createElement('div');
-    this.widget.className = 'chat-widget';
-
+  createWidgetContent() {
     this.widget.innerHTML = `
       <div class="chat-header">
         <span>${this.options.businessName}</span>
@@ -228,8 +294,6 @@ class ChatWidget {
         <button>Send</button>
       </div>
     `;
-
-    document.body.appendChild(this.widget);
 
     this.messagesContainer = this.widget.querySelector('.chat-messages');
     this.input = this.widget.querySelector('input');
@@ -294,7 +358,7 @@ class ChatWidget {
     if (this.options.businessInfo) {
       messagesWithContext.push({
         role: 'system',
-        content: `You are a sales assistant for the following business:\n${this.options.businessInfo}\n\nUse this information to help drive sales and assist customers effectively.`
+        content: `You are a sales assistant for the following business:\n${this.options.businessInfo}\n\nUse this information to help drive sales and assist customers effectively.${this.options.salesRepName ? `\n\nYour name is ${this.options.salesRepName}.` : ''}`
       });
     }
 

@@ -11,6 +11,7 @@ export async function handler(event) {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json'
   };
 
   // Handle preflight requests
@@ -26,7 +27,7 @@ export async function handler(event) {
     return { 
       statusCode: 405, 
       headers,
-      body: 'Method Not Allowed' 
+      body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
 
