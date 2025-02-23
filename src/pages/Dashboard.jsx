@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HexColorPicker } from 'react-colorful';
 import { supabase } from '../supabase';
-import { ChatWidget } from '../chat';
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate();
@@ -87,9 +86,6 @@ export default function Dashboard({ session }) {
       if (error) throw error;
       alert('Settings saved successfully!');
       setShowCode(true);
-
-      // Initialize widget for preview
-      new ChatWidget(settings);
     } catch (error) {
       console.error('Error saving settings:', error);
       alert('Error saving settings. Please try again.');
@@ -106,32 +102,22 @@ export default function Dashboard({ session }) {
   };
 
   const getWidgetCode = () => {
-    const settingsStr = JSON.stringify({
-      primaryColor: settings.primaryColor,
-      businessName: settings.businessName,
-      businessInfo: settings.businessInfo,
-      salesRepName: settings.salesRepName
-    }).replace(/"/g, '&quot;');
-
     return `<!-- AI Chat Widget -->
 <script>
-  (function() {
-    var script = document.createElement('script');
-    script.src = 'https://chatwidgetai.netlify.app/chat.js';
-    script.async = true;
-    script.onload = function() {
-      var settings = JSON.parse('${settingsStr}');
-      if (typeof ChatWidget !== 'undefined') {
-        window.chatWidget = new ChatWidget(settings);
-      } else {
-        console.error('ChatWidget failed to load properly');
-      }
-    };
-    script.onerror = function() {
-      console.error('Failed to load ChatWidget script');
-    };
-    document.head.appendChild(script);
-  })();
+(function() {
+  var script = document.createElement('script');
+  script.src = 'https://chatwidgetai.netlify.app/chat.js';
+  script.async = true;
+  script.onload = function() {
+    new ChatWidget({
+      primaryColor: '${settings.primaryColor}',
+      businessName: '${settings.businessName}',
+      businessInfo: '${settings.businessInfo}',
+      salesRepName: '${settings.salesRepName}'
+    });
+  };
+  document.head.appendChild(script);
+})();
 </script>`;
   };
 
