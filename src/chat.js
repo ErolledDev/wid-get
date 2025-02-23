@@ -36,6 +36,7 @@ export class ChatWidget {
         overflow: hidden;
         font-family: system-ui, -apple-system, sans-serif;
         transition: height 0.3s ease;
+        z-index: 9999;
       }
 
       .chat-widget.minimized {
@@ -129,6 +130,9 @@ export class ChatWidget {
         border-radius: 14px;
         margin: 4px 0;
         white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
       }
 
       .message.user {

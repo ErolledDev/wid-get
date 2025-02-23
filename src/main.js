@@ -1,8 +1,13 @@
-import { ChatWidget } from './chat';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './index.css';
 
-// Initialize the chat widget
-new ChatWidget({
-  primaryColor: '#2563eb',
-  businessName: 'AI Sales Assistant',
-  businessInfo: '' // You can pre-fill this with business information if desired
-});
+ReactDOM.createRoot(document.getElementById('app')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
