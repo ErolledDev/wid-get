@@ -6,12 +6,12 @@ const supabase = createClient(
 );
 
 export async function handler(event) {
-  // Add CORS headers
+  // Add CORS headers for all responses
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
   };
 
   // Handle preflight requests
