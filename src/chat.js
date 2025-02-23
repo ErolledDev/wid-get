@@ -9,6 +9,7 @@ export class ChatWidget {
     };
     
     this.messages = [];
+    this.isMinimized = false;
     this.init();
   }
 
@@ -34,6 +35,11 @@ export class ChatWidget {
         flex-direction: column;
         overflow: hidden;
         font-family: system-ui, -apple-system, sans-serif;
+        transition: height 0.3s ease;
+      }
+
+      .chat-widget.minimized {
+        height: 60px;
       }
 
       .chat-header {
@@ -44,6 +50,16 @@ export class ChatWidget {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        cursor: pointer;
+      }
+
+      .minimize-button {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 4px;
+        font-size: 1.2em;
       }
 
       .settings-button {
@@ -53,6 +69,7 @@ export class ChatWidget {
         cursor: pointer;
         padding: 4px;
         font-size: 1.2em;
+        margin-left: 8px;
       }
 
       .settings-panel {
@@ -66,6 +83,7 @@ export class ChatWidget {
         display: none;
         flex-direction: column;
         gap: 16px;
+        z-index: 2;
       }
 
       .settings-panel.active {
@@ -124,6 +142,52 @@ export class ChatWidget {
         align-self: flex-start;
       }
 
+      .typing-indicator {
+        display: none;
+        align-self: flex-start;
+        background: #f3f4f6;
+        padding: 12px 16px;
+        border-radius: 14px;
+        margin: 4px 0;
+      }
+
+      .typing-indicator.active {
+        display: flex;
+        align-items: center;
+      }
+
+      .typing-dots {
+        display: flex;
+        gap: 4px;
+      }
+
+      .typing-dot {
+        width: 6px;
+        height: 6px;
+        background: #666;
+        border-radius: 50%;
+        animation: typing-animation 1.4s infinite;
+      }
+
+      .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typing-animation {
+        0%, 60%, 100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        30% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
+      }
+
       .chat-input {
         padding: 16px;
         border-top: 1px solid #e5e7eb;
@@ -168,8 +232,11 @@ export class ChatWidget {
 
     this.widget.innerHTML = `
       <div class="chat-header">
-        ${this.options.businessName}
-        <button class="settings-button">⚙️</button>
+        <span>${this.options.businessName}</span>
+        <div class="header-buttons">
+          <button class="minimize-button">−</button>
+          <button class="settings-button">⚙️</button>
+        </div>
       </div>
       <div class="settings-panel">
         <h2>Business Information</h2>
@@ -177,6 +244,13 @@ export class ChatWidget {
         <button>Save Settings</button>
       </div>
       <div class="chat-messages"></div>
+      <div class="typing-indicator">
+        <div class="typing-dots">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
       <div class="chat-input">
         <input type="text" placeholder="Type your message..." />
         <button>Send</button>
@@ -187,11 +261,13 @@ export class ChatWidget {
 
     this.messagesContainer = this.widget.querySelector('.chat-messages');
     this.input = this.widget.querySelector('input');
-    this.sendButton = this.widget.querySelector('button:not(.settings-button)');
+    this.sendButton = this.widget.querySelector('.chat-input button');
     this.settingsButton = this.widget.querySelector('.settings-button');
+    this.minimizeButton = this.widget.querySelector('.minimize-button');
     this.settingsPanel = this.widget.querySelector('.settings-panel');
     this.settingsTextarea = this.widget.querySelector('textarea');
     this.settingsSaveButton = this.settingsPanel.querySelector('button');
+    this.typingIndicator = this.widget.querySelector('.typing-indicator');
 
     // Add initial greeting
     this.addMessage({
@@ -205,6 +281,18 @@ export class ChatWidget {
     this.input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         this.sendMessage();
+      }
+    });
+
+    // Minimize functionality
+    this.minimizeButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMinimize();
+    });
+
+    this.widget.querySelector('.chat-header').addEventListener('click', () => {
+      if (this.isMinimized) {
+        this.toggleMinimize();
       }
     });
 
@@ -227,6 +315,20 @@ export class ChatWidget {
         content: 'Hello! I\'ve been updated with your business information. How can I help you today?'
       });
     });
+  }
+
+  toggleMinimize() {
+    this.isMinimized = !this.isMinimized;
+    this.widget.classList.toggle('minimized');
+    this.minimizeButton.textContent = this.isMinimized ? '+' : '−';
+  }
+
+  showTypingIndicator() {
+    this.typingIndicator.classList.add('active');
+  }
+
+  hideTypingIndicator() {
+    this.typingIndicator.classList.remove('active');
   }
 
   async sendMessage() {
@@ -253,6 +355,9 @@ export class ChatWidget {
     // Add conversation history
     messagesWithContext.push(...this.messages, { role: 'user', content });
 
+    // Show typing indicator
+    this.showTypingIndicator();
+
     try {
       const response = await fetch('/.netlify/functions/chat', {
         method: 'POST',
@@ -261,6 +366,9 @@ export class ChatWidget {
         },
         body: JSON.stringify({ messages: messagesWithContext }),
       });
+
+      // Hide typing indicator
+      this.hideTypingIndicator();
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -282,6 +390,7 @@ export class ChatWidget {
       );
     } catch (error) {
       console.error('Error:', error);
+      this.hideTypingIndicator();
       this.addMessage({
         role: 'assistant',
         content: `Error: ${error.message}. Please try again.`
