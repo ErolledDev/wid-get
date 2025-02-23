@@ -1,3 +1,5 @@
+import React from 'react';
+
 export class ChatWidget {
   constructor(options = {}) {
     this.options = {
@@ -289,7 +291,6 @@ export class ChatWidget {
       }
     });
 
-    // Minimize functionality
     this.minimizeButton.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleMinimize();
@@ -301,7 +302,6 @@ export class ChatWidget {
       }
     });
 
-    // Settings panel events
     this.settingsButton.addEventListener('click', () => {
       this.settingsPanel.classList.toggle('active');
     });
@@ -376,11 +376,21 @@ export class ChatWidget {
       this.hideTypingIndicator();
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response from server');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        const text = await response.text();
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        throw new Error('Invalid response from server');
+      }
+
+      if (!data || !data.response) {
+        throw new Error('Invalid response format from server');
+      }
       
       // Clean the response text
       const cleanedResponse = data.response
@@ -403,7 +413,7 @@ export class ChatWidget {
       this.hideTypingIndicator();
       this.addMessage({
         role: 'assistant',
-        content: `Error: ${error.message}. Please try again.`
+        content: `I apologize, but I encountered an error. Please try again in a moment.`
       });
     }
   }

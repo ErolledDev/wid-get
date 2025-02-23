@@ -15,25 +15,53 @@ export default function Dashboard({ session }) {
   });
 
   useEffect(() => {
-    getSettings();
+    if (session) {
+      getSettings();
+    }
   }, [session]);
 
   async function getSettings() {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Get all settings for this user
+      let { data, error } = await supabase
         .from('widget_settings')
         .select('*')
         .eq('user_id', session.user.id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (error) throw error;
 
-      if (data) {
-        setSettings(data);
+      if (data && data.length > 0) {
+        // Use the most recent settings
+        const latestSettings = data[0];
+        setSettings({
+          primaryColor: latestSettings.primary_color,
+          businessName: latestSettings.business_name,
+          businessInfo: latestSettings.business_info,
+          salesRepName: latestSettings.sales_rep_name,
+        });
+      } else {
+        // No settings exist yet, create default settings
+        const defaultSettings = {
+          user_id: session.user.id,
+          primary_color: '#2563eb',
+          business_name: '',
+          business_info: '',
+          sales_rep_name: '',
+        };
+
+        const { error: insertError } = await supabase
+          .from('widget_settings')
+          .insert(defaultSettings);
+
+        if (insertError) throw insertError;
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+      alert('Error loading settings. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -42,10 +70,23 @@ export default function Dashboard({ session }) {
   async function updateSettings() {
     try {
       setLoading(true);
-      const { error } = await supabase.from('widget_settings').upsert({
-        user_id: session.user.id,
-        ...settings,
-      });
+      
+      // Delete any existing settings for this user
+      await supabase
+        .from('widget_settings')
+        .delete()
+        .eq('user_id', session.user.id);
+
+      // Insert new settings
+      const { error } = await supabase
+        .from('widget_settings')
+        .insert({
+          user_id: session.user.id,
+          primary_color: settings.primaryColor,
+          business_name: settings.businessName,
+          business_info: settings.businessInfo,
+          sales_rep_name: settings.salesRepName,
+        });
 
       if (error) throw error;
       alert('Settings saved successfully!');
@@ -54,7 +95,7 @@ export default function Dashboard({ session }) {
       new ChatWidget(settings);
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Error saving settings');
+      alert('Error saving settings. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 
@@ -8,6 +8,12 @@ export default function HomePage({ session }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (session) {
+      navigate('/dashboard');
+    }
+  }, [session, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -59,7 +65,6 @@ export default function HomePage({ session }) {
   };
 
   if (session) {
-    navigate('/dashboard');
     return null;
   }
 
