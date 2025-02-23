@@ -19,15 +19,23 @@ class ChatWidget {
     };
     
     this.messages = [];
-    this.isMinimized = false;
+    this.isMinimized = true; // Start minimized
     this.initialized = false;
     this.uid = options.uid;
+    this.unreadCount = 0;
 
     // Create base widget structure
     this.createBaseWidget();
     
     // Fetch settings from API
     this.fetchSettings();
+
+    // Auto-open after delay
+    setTimeout(() => {
+      if (this.isMinimized) {
+        this.toggleMinimize();
+      }
+    }, 3000);
   }
 
   async fetchSettings() {
@@ -71,7 +79,7 @@ class ChatWidget {
 
   createBaseWidget() {
     this.widget = document.createElement('div');
-    this.widget.className = 'chat-widget';
+    this.widget.className = 'chat-widget minimized';
     document.body.appendChild(this.widget);
   }
 
@@ -137,12 +145,23 @@ class ChatWidget {
         flex-direction: column;
         overflow: hidden;
         font-family: system-ui, -apple-system, sans-serif;
-        transition: height 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 999999;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+
+      @keyframes slideIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .chat-widget.minimized {
         height: 60px;
+        cursor: pointer;
       }
 
       .chat-header {
@@ -155,6 +174,31 @@ class ChatWidget {
         align-items: center;
         cursor: pointer;
         transition: background-color 0.3s ease;
+        position: relative;
+      }
+
+      .unread-count {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #ef4444;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        opacity: 0;
+        transform: scale(0);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .unread-count.show {
+        opacity: 1;
+        transform: scale(1);
       }
 
       .minimize-button {
@@ -164,6 +208,11 @@ class ChatWidget {
         cursor: pointer;
         padding: 4px;
         font-size: 1.2em;
+        transition: transform 0.3s ease;
+      }
+
+      .minimize-button:hover {
+        transform: scale(1.1);
       }
 
       .chat-messages {
@@ -184,7 +233,17 @@ class ChatWidget {
         word-wrap: break-word;
         overflow-wrap: break-word;
         line-height: 1.4;
-        transition: background-color 0.3s ease;
+        transition: all 0.3s ease;
+        opacity: 0;
+        transform: translateY(10px);
+        animation: messageIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+
+      @keyframes messageIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .message.user {
@@ -258,6 +317,11 @@ class ChatWidget {
         border: 1px solid #e5e7eb;
         border-radius: 6px;
         outline: none;
+        transition: border-color 0.3s ease;
+      }
+
+      .chat-input input:focus {
+        border-color: ${this.options.primaryColor};
       }
 
       .chat-input button {
@@ -268,11 +332,16 @@ class ChatWidget {
         border-radius: 6px;
         cursor: pointer;
         font-weight: 500;
-        transition: background-color 0.3s ease;
+        transition: all 0.3s ease;
       }
 
       .chat-input button:hover {
         opacity: 0.9;
+        transform: translateY(-1px);
+      }
+
+      .chat-input button:active {
+        transform: translateY(1px);
       }
     `;
     document.head.appendChild(styles);
@@ -282,6 +351,7 @@ class ChatWidget {
     this.widget.innerHTML = `
       <div class="chat-header">
         <span>${this.options.businessName}</span>
+        <div class="unread-count">0</div>
         <button class="minimize-button">−</button>
       </div>
       <div class="chat-messages"></div>
@@ -302,16 +372,24 @@ class ChatWidget {
     this.input = this.widget.querySelector('input');
     this.sendButton = this.widget.querySelector('.chat-input button');
     this.typingIndicator = this.widget.querySelector('.typing-indicator');
+    this.unreadCountElement = this.widget.querySelector('.unread-count');
 
-    // Add initial greeting
-    const greeting = this.options.salesRepName 
-      ? `Hello! I'm ${this.options.salesRepName} from ${this.options.businessName}. How can I help you today?`
-      : `Hello! Welcome to ${this.options.businessName}. How can I help you today?`;
-    
-    this.addMessage({
-      role: 'assistant',
-      content: greeting
-    });
+    // Add initial greeting after a short delay
+    setTimeout(() => {
+      const greeting = this.options.salesRepName 
+        ? `Hello! I'm ${this.options.salesRepName} from ${this.options.businessName}. How can I help you today?`
+        : `Hello! Welcome to ${this.options.businessName}. How can I help you today?`;
+      
+      this.addMessage({
+        role: 'assistant',
+        content: greeting
+      });
+
+      // Increment unread count if minimized
+      if (this.isMinimized) {
+        this.incrementUnreadCount();
+      }
+    }, 1000);
   }
 
   attachEventListeners() {
@@ -338,6 +416,23 @@ class ChatWidget {
     this.isMinimized = !this.isMinimized;
     this.widget.classList.toggle('minimized');
     this.widget.querySelector('.minimize-button').textContent = this.isMinimized ? '+' : '−';
+
+    if (!this.isMinimized) {
+      // Reset unread count when opening
+      this.resetUnreadCount();
+    }
+  }
+
+  incrementUnreadCount() {
+    this.unreadCount++;
+    this.unreadCountElement.textContent = this.unreadCount;
+    this.unreadCountElement.classList.add('show');
+  }
+
+  resetUnreadCount() {
+    this.unreadCount = 0;
+    this.unreadCountElement.textContent = '0';
+    this.unreadCountElement.classList.remove('show');
   }
 
   showTypingIndicator() {
@@ -405,6 +500,11 @@ class ChatWidget {
         { role: 'user', content },
         { role: 'assistant', content: data.response }
       );
+
+      // Increment unread count if minimized
+      if (this.isMinimized) {
+        this.incrementUnreadCount();
+      }
     } catch (error) {
       console.error('Error:', error);
       this.hideTypingIndicator();
