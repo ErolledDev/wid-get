@@ -11,9 +11,12 @@ export default defineConfig({
       },
       output: {
         entryFileNames: '[name].js',
-        chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]'
+        chunkFileNames: 'chunks/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]',
+        format: 'iife'
       }
-    }
+    },
+    target: 'es2015',
+    minify: true
   }
 });

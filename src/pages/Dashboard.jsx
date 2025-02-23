@@ -113,13 +113,22 @@ export default function Dashboard({ session }) {
       salesRepName: settings.salesRepName
     }).replace(/"/g, '&quot;');
 
-    return `<script>
+    return `<!-- AI Chat Widget -->
+<script>
   (function() {
     var script = document.createElement('script');
     script.src = 'https://chatwidgetai.netlify.app/chat.js';
+    script.async = true;
     script.onload = function() {
       var settings = JSON.parse('${settingsStr}');
-      window.chatWidget = new ChatWidget(settings);
+      if (typeof ChatWidget !== 'undefined') {
+        window.chatWidget = new ChatWidget(settings);
+      } else {
+        console.error('ChatWidget failed to load properly');
+      }
+    };
+    script.onerror = function() {
+      console.error('Failed to load ChatWidget script');
     };
     document.head.appendChild(script);
   })();
