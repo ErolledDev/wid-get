@@ -4,17 +4,50 @@ class ChatWidget {
     // Ensure this is only initialized in browser environment
     if (typeof window === 'undefined') return;
     
-    this.options = {
-      position: 'bottom-right',
-      primaryColor: '#2563eb',
-      businessName: 'AI Sales Assistant',
-      businessInfo: '',
-      ...options
-    };
+    // If uid is provided, fetch settings from API
+    if (options.uid) {
+      this.fetchSettings(options.uid);
+    } else {
+      this.options = {
+        position: 'bottom-right',
+        primaryColor: '#2563eb',
+        businessName: 'AI Sales Assistant',
+        businessInfo: '',
+        ...options
+      };
+      this.init();
+    }
     
     this.messages = [];
     this.isMinimized = false;
-    this.init();
+  }
+
+  async fetchSettings(uid) {
+    try {
+      const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${uid}`);
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      
+      const settings = await response.json();
+      this.options = {
+        position: 'bottom-right',
+        primaryColor: settings.primary_color,
+        businessName: settings.business_name,
+        businessInfo: settings.business_info,
+        salesRepName: settings.sales_rep_name
+      };
+      
+      this.init();
+    } catch (error) {
+      console.error('Error fetching widget settings:', error);
+      // Initialize with defaults if settings fetch fails
+      this.options = {
+        position: 'bottom-right',
+        primaryColor: '#2563eb',
+        businessName: 'AI Sales Assistant',
+        businessInfo: ''
+      };
+      this.init();
+    }
   }
 
   init() {
@@ -285,7 +318,7 @@ class ChatWidget {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ messages: messagesWithContext }),
-        mode: 'cors' // Explicitly set CORS mode
+        mode: 'cors'
       });
 
       // Hide typing indicator

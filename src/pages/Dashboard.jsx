@@ -18,7 +18,7 @@ export default function Dashboard({ session }) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   useEffect(() => {
-    if (session) {
+    if (session?.user?.id) {
       getSettings();
     }
   }, [session]);
@@ -27,37 +27,22 @@ export default function Dashboard({ session }) {
     try {
       setLoading(true);
       
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('widget_settings')
         .select('*')
         .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .maybeSingle();
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        const latestSettings = data[0];
+      if (data) {
         setSettings({
-          primaryColor: latestSettings.primary_color,
-          businessName: latestSettings.business_name,
-          businessInfo: latestSettings.business_info,
-          salesRepName: latestSettings.sales_rep_name,
+          primaryColor: data.primary_color,
+          businessName: data.business_name,
+          businessInfo: data.business_info,
+          salesRepName: data.sales_rep_name,
         });
-      } else {
-        const defaultSettings = {
-          user_id: session.user.id,
-          primary_color: '#2563eb',
-          business_name: '',
-          business_info: '',
-          sales_rep_name: '',
-        };
-
-        const { error: insertError } = await supabase
-          .from('widget_settings')
-          .insert(defaultSettings);
-
-        if (insertError) throw insertError;
+        setShowCode(true);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -71,14 +56,9 @@ export default function Dashboard({ session }) {
     try {
       setLoading(true);
       
-      await supabase
-        .from('widget_settings')
-        .delete()
-        .eq('user_id', session.user.id);
-
       const { error } = await supabase
         .from('widget_settings')
-        .insert({
+        .upsert({
           user_id: session.user.id,
           primary_color: settings.primaryColor,
           business_name: settings.businessName,
@@ -100,13 +80,11 @@ export default function Dashboard({ session }) {
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      if (!error) {
-        toast.success('Signed out successfully');
-        navigate('/');
-      } else {
-        throw error;
-      }
+      if (error) throw error;
+      toast.success('Signed out successfully');
+      navigate('/');
     } catch (error) {
+      console.error('Error signing out:', error);
       toast.error('Error signing out');
     }
   };
@@ -120,10 +98,7 @@ export default function Dashboard({ session }) {
   script.async = true;
   script.onload = function() {
     new ChatWidget({
-      primaryColor: '${settings.primaryColor}',
-      businessName: '${settings.businessName}',
-      businessInfo: '${settings.businessInfo}',
-      salesRepName: '${settings.salesRepName}'
+      uid: '${session.user.id}'
     });
   };
   document.head.appendChild(script);
