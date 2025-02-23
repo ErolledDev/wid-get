@@ -1,5 +1,4 @@
-import React from 'react';
-
+// Standalone chat widget script
 export class ChatWidget {
   constructor(options = {}) {
     this.options = {
@@ -63,58 +62,6 @@ export class ChatWidget {
         cursor: pointer;
         padding: 4px;
         font-size: 1.2em;
-      }
-
-      .settings-button {
-        background: transparent;
-        border: none;
-        color: white;
-        cursor: pointer;
-        padding: 4px;
-        font-size: 1.2em;
-        margin-left: 8px;
-      }
-
-      .settings-panel {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: white;
-        padding: 16px;
-        display: none;
-        flex-direction: column;
-        gap: 16px;
-        z-index: 2;
-      }
-
-      .settings-panel.active {
-        display: flex;
-      }
-
-      .settings-panel h2 {
-        margin: 0;
-        color: ${this.options.primaryColor};
-      }
-
-      .settings-panel textarea {
-        flex: 1;
-        padding: 12px;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        resize: none;
-        font-family: inherit;
-      }
-
-      .settings-panel button {
-        background: ${this.options.primaryColor};
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
       }
 
       .chat-messages {
@@ -223,12 +170,6 @@ export class ChatWidget {
       .chat-input button:hover {
         opacity: 0.9;
       }
-
-      .error-message {
-        color: #ef4444;
-        font-size: 0.875rem;
-        margin: 4px 0;
-      }
     `;
     document.head.appendChild(styles);
   }
@@ -240,15 +181,7 @@ export class ChatWidget {
     this.widget.innerHTML = `
       <div class="chat-header">
         <span>${this.options.businessName}</span>
-        <div class="header-buttons">
-          <button class="minimize-button">−</button>
-          <button class="settings-button">⚙️</button>
-        </div>
-      </div>
-      <div class="settings-panel">
-        <h2>Business Information</h2>
-        <textarea placeholder="Enter your business information, products, services, and any specific sales instructions for the AI...">${this.options.businessInfo}</textarea>
-        <button>Save Settings</button>
+        <button class="minimize-button">−</button>
       </div>
       <div class="chat-messages"></div>
       <div class="typing-indicator">
@@ -269,17 +202,12 @@ export class ChatWidget {
     this.messagesContainer = this.widget.querySelector('.chat-messages');
     this.input = this.widget.querySelector('input');
     this.sendButton = this.widget.querySelector('.chat-input button');
-    this.settingsButton = this.widget.querySelector('.settings-button');
-    this.minimizeButton = this.widget.querySelector('.minimize-button');
-    this.settingsPanel = this.widget.querySelector('.settings-panel');
-    this.settingsTextarea = this.widget.querySelector('textarea');
-    this.settingsSaveButton = this.settingsPanel.querySelector('button');
     this.typingIndicator = this.widget.querySelector('.typing-indicator');
 
     // Add initial greeting
     this.addMessage({
       role: 'assistant',
-      content: 'Hello! How can I help you today?'
+      content: `Hello! Welcome to ${this.options.businessName}. How can I help you today?`
     });
   }
 
@@ -291,7 +219,7 @@ export class ChatWidget {
       }
     });
 
-    this.minimizeButton.addEventListener('click', (e) => {
+    this.widget.querySelector('.minimize-button').addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleMinimize();
     });
@@ -301,31 +229,12 @@ export class ChatWidget {
         this.toggleMinimize();
       }
     });
-
-    this.settingsButton.addEventListener('click', () => {
-      this.settingsPanel.classList.toggle('active');
-    });
-
-    this.settingsSaveButton.addEventListener('click', () => {
-      this.options.businessInfo = this.settingsTextarea.value;
-      this.settingsPanel.classList.remove('active');
-      
-      // Clear chat history and start fresh with new business context
-      this.messages = [];
-      this.messagesContainer.innerHTML = '';
-      
-      // Add new greeting with business context
-      this.addMessage({
-        role: 'assistant',
-        content: 'Hello! I\'ve been updated with your business information. How can I help you today?'
-      });
-    });
   }
 
   toggleMinimize() {
     this.isMinimized = !this.isMinimized;
     this.widget.classList.toggle('minimized');
-    this.minimizeButton.textContent = this.isMinimized ? '+' : '−';
+    this.widget.querySelector('.minimize-button').textContent = this.isMinimized ? '+' : '−';
   }
 
   showTypingIndicator() {
@@ -358,13 +267,13 @@ export class ChatWidget {
     }
 
     // Add conversation history
-    messagesWithContext.push(...this.messages, { role: 'user', content });
+    messagesWithContext.push(...this.messages);
 
     // Show typing indicator
     this.showTypingIndicator();
 
     try {
-      const response = await fetch('/.netlify/functions/chat', {
+      const response = await fetch('https://chatwidgetai.netlify.app/.netlify/functions/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -379,41 +288,25 @@ export class ChatWidget {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      let data;
-      try {
-        const text = await response.text();
-        data = JSON.parse(text);
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        throw new Error('Invalid response from server');
-      }
-
-      if (!data || !data.response) {
-        throw new Error('Invalid response format from server');
-      }
-      
-      // Clean the response text
-      const cleanedResponse = data.response
-        .replace(/[^\x20-\x7E\n]/g, '') // Remove special characters
-        .trim();
+      const data = await response.json();
       
       // Add AI response
       this.addMessage({
         role: 'assistant',
-        content: cleanedResponse
+        content: data.response
       });
 
       // Add to history
       this.messages.push(
         { role: 'user', content },
-        { role: 'assistant', content: cleanedResponse }
+        { role: 'assistant', content: data.response }
       );
     } catch (error) {
       console.error('Error:', error);
       this.hideTypingIndicator();
       this.addMessage({
         role: 'assistant',
-        content: `I apologize, but I encountered an error. Please try again in a moment.`
+        content: 'I apologize, but I encountered an error. Please try again in a moment.'
       });
     }
   }
@@ -425,4 +318,9 @@ export class ChatWidget {
     this.messagesContainer.appendChild(messageEl);
     this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
   }
+}
+
+// Initialize the widget if it's loaded as a script
+if (typeof window !== 'undefined') {
+  window.ChatWidget = ChatWidget;
 }

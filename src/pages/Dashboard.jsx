@@ -13,6 +13,7 @@ export default function Dashboard({ session }) {
     businessInfo: '',
     salesRepName: '',
   });
+  const [showCode, setShowCode] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -24,7 +25,6 @@ export default function Dashboard({ session }) {
     try {
       setLoading(true);
       
-      // Get all settings for this user
       let { data, error } = await supabase
         .from('widget_settings')
         .select('*')
@@ -35,7 +35,6 @@ export default function Dashboard({ session }) {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Use the most recent settings
         const latestSettings = data[0];
         setSettings({
           primaryColor: latestSettings.primary_color,
@@ -44,7 +43,6 @@ export default function Dashboard({ session }) {
           salesRepName: latestSettings.sales_rep_name,
         });
       } else {
-        // No settings exist yet, create default settings
         const defaultSettings = {
           user_id: session.user.id,
           primary_color: '#2563eb',
@@ -71,13 +69,11 @@ export default function Dashboard({ session }) {
     try {
       setLoading(true);
       
-      // Delete any existing settings for this user
       await supabase
         .from('widget_settings')
         .delete()
         .eq('user_id', session.user.id);
 
-      // Insert new settings
       const { error } = await supabase
         .from('widget_settings')
         .insert({
@@ -90,8 +86,8 @@ export default function Dashboard({ session }) {
 
       if (error) throw error;
       alert('Settings saved successfully!');
+      setShowCode(true);
 
-      // Reinitialize chat widget with new settings
       new ChatWidget(settings);
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -105,6 +101,34 @@ export default function Dashboard({ session }) {
     const { error } = await supabase.auth.signOut();
     if (!error) {
       navigate('/');
+    }
+  };
+
+  const getWidgetCode = () => {
+    return `<script>
+  (function() {
+    var script = document.createElement('script');
+    script.src = 'https://chatwidgetai.netlify.app/chat.js';
+    script.onload = function() {
+      new ChatWidget({
+        primaryColor: '${settings.primaryColor}',
+        businessName: '${settings.businessName}',
+        businessInfo: '${settings.businessInfo}',
+        salesRepName: '${settings.salesRepName}'
+      });
+    };
+    document.head.appendChild(script);
+  })();
+</script>`;
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(getWidgetCode());
+      alert('Widget code copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy code:', err);
+      alert('Failed to copy code. Please try selecting and copying manually.');
     }
   };
 
@@ -189,6 +213,28 @@ export default function Dashboard({ session }) {
             >
               {loading ? 'Saving...' : 'Save Settings'}
             </button>
+
+            {showCode && (
+              <div className="mt-8 space-y-4">
+                <h2 className="text-lg font-medium text-gray-900">
+                  Install Widget on Your Website
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Copy and paste this code snippet just before the closing &lt;/body&gt; tag of your website:
+                </p>
+                <div className="relative">
+                  <pre className="bg-gray-50 rounded-md p-4 overflow-x-auto text-sm">
+                    <code>{getWidgetCode()}</code>
+                  </pre>
+                  <button
+                    onClick={copyToClipboard}
+                    className="absolute top-2 right-2 px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
