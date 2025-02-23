@@ -1,23 +1,23 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini with API key, gracefully handle if not available in dev
+// Initialize Gemini with API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy-key-for-dev');
 
-export async function handler(event) {
-  // Add CORS headers for all responses
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400',
-    'Content-Type': 'application/json'
-  };
+// CORS headers for all responses
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+  'Content-Type': 'application/json'
+};
 
+export async function handler(event) {
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers,
+      headers: corsHeaders,
       body: ''
     };
   }
@@ -25,7 +25,7 @@ export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return { 
       statusCode: 405, 
-      headers,
+      headers: corsHeaders,
       body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   }
@@ -36,7 +36,7 @@ export async function handler(event) {
     if (!messages || !Array.isArray(messages)) {
       return {
         statusCode: 400,
-        headers,
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Invalid messages format. Expected an array.' })
       };
     }
@@ -45,7 +45,7 @@ export async function handler(event) {
     if (!process.env.GEMINI_API_KEY) {
       return {
         statusCode: 200,
-        headers,
+        headers: corsHeaders,
         body: JSON.stringify({
           response: "This is a development response. The actual AI responses will work when deployed to Netlify."
         })
@@ -117,14 +117,14 @@ User message: ${lastMessage}`;
 
       return {
         statusCode: 200,
-        headers,
+        headers: corsHeaders,
         body: JSON.stringify({ response: text })
       };
     } catch (modelError) {
       console.error('Gemini API Error:', modelError);
       return {
         statusCode: 500,
-        headers,
+        headers: corsHeaders,
         body: JSON.stringify({ 
           error: 'Error communicating with Gemini API',
           details: modelError.message 
@@ -135,7 +135,7 @@ User message: ${lastMessage}`;
     console.error('Function Error:', error);
     return {
       statusCode: 500,
-      headers,
+      headers: corsHeaders,
       body: JSON.stringify({ 
         error: 'Internal server error',
         details: error.message 

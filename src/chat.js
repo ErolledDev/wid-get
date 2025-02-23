@@ -23,12 +23,15 @@ class ChatWidget {
     this.initialized = false;
     this.uid = options.uid;
     this.unreadCount = 0;
+    this.retryCount = 0;
+    this.maxRetries = 3;
+    this.retryDelay = 1000; // Start with 1 second delay
 
     // Create base widget structure
     this.createBaseWidget();
     
-    // Fetch settings from API
-    this.fetchSettings();
+    // Fetch settings from API with retry logic
+    this.fetchSettingsWithRetry();
 
     // Auto-open after delay
     setTimeout(() => {
@@ -38,14 +41,13 @@ class ChatWidget {
     }, 3000);
   }
 
-  async fetchSettings() {
+  async fetchSettingsWithRetry() {
     try {
       const response = await fetch(`https://chatwidgetai.netlify.app/.netlify/functions/settings?uid=${this.uid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
-        },
-        mode: 'cors'
+        }
       });
 
       if (!response.ok) {
@@ -61,6 +63,9 @@ class ChatWidget {
         salesRepName: settings.sales_rep_name || this.options.salesRepName
       };
       
+      // Reset retry count on success
+      this.retryCount = 0;
+      
       // Update or initialize the widget
       if (this.initialized) {
         this.updateWidgetStyles();
@@ -70,9 +75,23 @@ class ChatWidget {
       }
     } catch (error) {
       console.error('Error fetching widget settings:', error);
-      // Initialize with defaults if settings fetch fails
-      if (!this.initialized) {
-        this.init();
+      
+      // Implement exponential backoff for retries
+      if (this.retryCount < this.maxRetries) {
+        this.retryCount++;
+        const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
+        
+        console.log(`Retrying in ${delay}ms... (Attempt ${this.retryCount} of ${this.maxRetries})`);
+        
+        setTimeout(() => {
+          this.fetchSettingsWithRetry();
+        }, delay);
+      } else {
+        // Initialize with defaults if all retries fail
+        console.warn('Failed to fetch settings after all retries, initializing with defaults');
+        if (!this.initialized) {
+          this.init();
+        }
       }
     }
   }
