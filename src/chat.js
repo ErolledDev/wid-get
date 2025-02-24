@@ -37,13 +37,9 @@ class ChatWidget {
 
   async fetchSettingsWithRetry() {
     try {
-      // Use the correct production URL for settings
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? window.location.origin 
-        : 'https://chatwidgetai.netlify.app';
-      
+      // Get the correct base URL
+      const baseUrl = 'https://chatwidgetai.netlify.app';
       const settingsUrl = `${baseUrl}/.netlify/functions/settings`;
-      console.log('Fetching settings from:', settingsUrl);
       
       const response = await fetch(`${settingsUrl}?uid=${this.uid}`, {
         method: 'GET',
@@ -53,14 +49,12 @@ class ChatWidget {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Settings fetch failed:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const settings = await response.json();
-      console.log('Received settings:', settings);
       
+      // Update options with fetched settings
       this.options = {
         ...this.options,
         primaryColor: settings.primary_color || this.options.primaryColor,
@@ -83,7 +77,6 @@ class ChatWidget {
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
         const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
-        console.log(`Retrying in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})`);
         
         setTimeout(() => {
           this.fetchSettingsWithRetry();
@@ -97,12 +90,66 @@ class ChatWidget {
     }
   }
 
+  async sendMessage() {
+    const content = this.input.value.trim();
+    if (!content) return;
+
+    this.input.value = '';
+    this.addMessage({ role: 'user', content });
+    this.showTypingIndicator();
+
+    try {
+      const response = await fetch('https://chatwidgetai.netlify.app/.netlify/functions/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: this.messages,
+          settings: {
+            businessName: this.options.businessName,
+            businessInfo: this.options.businessInfo,
+            salesRepName: this.options.salesRepName
+          }
+        })
+      });
+
+      this.hideTypingIndicator();
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      this.addMessage({
+        role: 'assistant',
+        content: data.response
+      });
+
+      this.messages.push(
+        { role: 'user', content },
+        { role: 'assistant', content: data.response }
+      );
+
+      if (this.isMinimized) {
+        this.incrementUnreadCount();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      this.hideTypingIndicator();
+      this.addMessage({
+        role: 'assistant',
+        content: 'I apologize, but I encountered an error. Please try again in a moment.'
+      });
+    }
+  }
+
   createBaseWidget() {
     this.widget = document.createElement('div');
     this.widget.className = 'chat-widget minimized';
     document.body.appendChild(this.widget);
 
-    // Create minimize button container
     const header = document.createElement('div');
     header.className = 'chat-header';
     this.widget.appendChild(header);
@@ -121,7 +168,6 @@ class ChatWidget {
     this.attachEventListeners();
     this.initialized = true;
 
-    // Auto-open after delay
     setTimeout(() => {
       if (this.isMinimized) {
         this.toggleMinimize();
@@ -160,7 +206,6 @@ class ChatWidget {
       msg.style.backgroundColor = this.options.primaryColor;
     });
 
-    // Update greeting if it exists
     const messages = this.widget.querySelectorAll('.message');
     if (messages.length === 1 && messages[0].classList.contains('assistant')) {
       const greeting = this.options.salesRepName 
@@ -169,7 +214,6 @@ class ChatWidget {
       messages[0].textContent = greeting;
     }
 
-    // Update minimize button
     const minimizeButton = this.widget.querySelector('.minimize-button');
     if (minimizeButton) {
       minimizeButton.textContent = this.isMinimized ? '+' : '−';
@@ -486,61 +530,6 @@ class ChatWidget {
 
   hideTypingIndicator() {
     this.typingIndicator.classList.remove('active');
-  }
-
-  async sendMessage() {
-    const content = this.input.value.trim();
-    if (!content) return;
-
-    this.input.value = '';
-    this.addMessage({ role: 'user', content });
-    this.showTypingIndicator();
-
-    try {
-      const response = await fetch(`${window.location.origin}/.netlify/functions/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: this.messages,
-          settings: {
-            businessName: this.options.businessName,
-            businessInfo: this.options.businessInfo,
-            salesRepName: this.options.salesRepName
-          }
-        })
-      });
-
-      this.hideTypingIndicator();
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      this.addMessage({
-        role: 'assistant',
-        content: data.response
-      });
-
-      this.messages.push(
-        { role: 'user', content },
-        { role: 'assistant', content: data.response }
-      );
-
-      if (this.isMinimized) {
-        this.incrementUnreadCount();
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      this.hideTypingIndicator();
-      this.addMessage({
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error. Please try again in a moment.'
-      });
-    }
   }
 
   addMessage({ role, content }) {
