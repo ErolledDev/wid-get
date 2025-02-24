@@ -8,25 +8,54 @@ import Dashboard from './pages/Dashboard';
 
 function App() {
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    // Get initial session and set up auth listener
+    let mounted = true;
+
+    async function getInitialSession() {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (mounted) {
+          setSession(initialSession);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    getInitialSession();
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted) {
+        setSession(session);
+        setLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
+  // Show loading spinner while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -44,11 +73,24 @@ function App() {
         }}
       />
       <Routes>
-        <Route path="/" element={<HomePage session={session} />} />
+        <Route 
+          path="/" 
+          element={
+            session ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <HomePage session={session} />
+            )
+          } 
+        />
         <Route
           path="/dashboard"
           element={
-            session ? (
+            loading ? (
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
+              </div>
+            ) : session ? (
               <Dashboard session={session} />
             ) : (
               <Navigate to="/" replace />
@@ -56,7 +98,7 @@ function App() {
           }
         />
       </Routes>
-    </>
+    </div>
   );
 }
 

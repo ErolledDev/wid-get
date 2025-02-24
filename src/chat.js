@@ -37,8 +37,14 @@ class ChatWidget {
 
   async fetchSettingsWithRetry() {
     try {
-      // Get the correct base URL
-      const baseUrl = 'https://chatwidgetai.netlify.app';
+      // Get the current hostname
+      const currentHostname = window.location.hostname;
+      
+      // Determine the base URL based on the environment
+      const baseUrl = currentHostname.includes('localhost') || currentHostname.includes('127.0.0.1')
+        ? 'http://localhost:3000'
+        : 'https://chatwidgetai.netlify.app';
+      
       const settingsUrl = `${baseUrl}/.netlify/functions/settings`;
       
       const response = await fetch(`${settingsUrl}?uid=${this.uid}`, {
@@ -99,7 +105,15 @@ class ChatWidget {
     this.showTypingIndicator();
 
     try {
-      const response = await fetch('https://chatwidgetai.netlify.app/.netlify/functions/chat', {
+      // Get the current hostname
+      const currentHostname = window.location.hostname;
+      
+      // Determine the base URL based on the environment
+      const baseUrl = currentHostname.includes('localhost') || currentHostname.includes('127.0.0.1')
+        ? 'http://localhost:3000'
+        : 'https://chatwidgetai.netlify.app';
+
+      const response = await fetch(`${baseUrl}/.netlify/functions/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,14 +136,21 @@ class ChatWidget {
 
       const data = await response.json();
       
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const aiResponse = data.response || "I apologize, but I'm having trouble generating a response. Please try again.";
+      
       this.addMessage({
         role: 'assistant',
-        content: data.response
+        content: aiResponse
       });
 
+      // Update messages array with both messages
       this.messages.push(
         { role: 'user', content },
-        { role: 'assistant', content: data.response }
+        { role: 'assistant', content: aiResponse }
       );
 
       if (this.isMinimized) {

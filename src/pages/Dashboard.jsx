@@ -16,90 +16,108 @@ export default function Dashboard({ session }) {
   });
   const [showCode, setShowCode] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [widgetInstance, setWidgetInstance] = useState(null);
 
   useEffect(() => {
-    if (session?.user?.id) {
-      getSettings();
+    let mounted = true;
+
+    async function loadSettings() {
+      try {
+        if (!session?.user?.id) return;
+
+        const { data, error } = await supabase
+          .from('widget_settings')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (!mounted) return;
+
+        if (error) {
+          if (error.code === 'PGRST116') { // Not found error
+            // Create default settings
+            const defaultSettings = {
+              user_id: session.user.id,
+              primary_color: '#2563eb',
+              business_name: '',
+              business_info: '',
+              sales_rep_name: ''
+            };
+
+            const { error: insertError } = await supabase
+              .from('widget_settings')
+              .insert(defaultSettings);
+
+            if (insertError) throw insertError;
+            
+            setSettings({
+              primaryColor: defaultSettings.primary_color,
+              businessName: defaultSettings.business_name,
+              businessInfo: defaultSettings.business_info,
+              salesRepName: defaultSettings.sales_rep_name
+            });
+          } else {
+            throw error;
+          }
+        } else if (data) {
+          setSettings({
+            primaryColor: data.primary_color || '#2563eb',
+            businessName: data.business_name || '',
+            businessInfo: data.business_info || '',
+            salesRepName: data.sales_rep_name || ''
+          });
+        }
+        
+        setShowCode(true);
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        if (mounted) {
+          toast.error('Error loading settings. Please try again.');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     }
+
+    loadSettings();
+
+    return () => {
+      mounted = false;
+      // Cleanup widget on unmount
+      const existingWidget = document.querySelector('.chat-widget');
+      if (existingWidget) {
+        existingWidget.remove();
+      }
+    };
   }, [session]);
 
-  // Initialize widget only after settings are loaded
+  // Initialize widget when settings change
   useEffect(() => {
     if (!loading && session?.user?.id) {
-      initializeWidget();
-    }
-  }, [loading, session, settings]); // Add settings as dependency
-
-  const initializeWidget = () => {
-    // Remove existing widget if any
-    const existingWidget = document.querySelector('.chat-widget');
-    if (existingWidget) {
-      existingWidget.remove();
-    }
-
-    // Initialize new widget with current settings
-    const widget = new window.ChatWidget({
-      uid: session.user.id,
-      ...settings
-    });
-    setWidgetInstance(widget);
-  };
-
-  async function getSettings() {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('widget_settings')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') { // Not found error
-          // Create default settings
-          const defaultSettings = {
-            user_id: session.user.id,
-            primary_color: settings.primaryColor,
-            business_name: settings.businessName,
-            business_info: settings.businessInfo,
-            sales_rep_name: settings.salesRepName
-          };
-
-          const { error: insertError } = await supabase
-            .from('widget_settings')
-            .insert(defaultSettings);
-
-          if (insertError) throw insertError;
-          
-          // Use default settings
-          setSettings({
-            primaryColor: defaultSettings.primary_color,
-            businessName: defaultSettings.business_name,
-            businessInfo: defaultSettings.business_info,
-            salesRepName: defaultSettings.sales_rep_name
-          });
-        } else {
-          throw error;
-        }
-      } else if (data) {
-        setSettings({
-          primaryColor: data.primary_color || '#2563eb',
-          businessName: data.business_name || '',
-          businessInfo: data.business_info || '',
-          salesRepName: data.sales_rep_name || ''
-        });
+      // Remove existing widget if any
+      const existingWidget = document.querySelector('.chat-widget');
+      if (existingWidget) {
+        existingWidget.remove();
       }
-      
-      setShowCode(true);
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      toast.error('Error loading settings. Please try again.');
-    } finally {
-      setLoading(false);
+
+      // Initialize new widget with current settings
+      const baseUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+        ? window.location.origin
+        : 'https://chatwidgetai.netlify.app';
+
+      const script = document.createElement('script');
+      script.src = `${baseUrl}/chat.js`;
+      script.async = true;
+      script.onload = () => {
+        new window.ChatWidget({
+          uid: session.user.id,
+          ...settings
+        });
+      };
+      document.head.appendChild(script);
     }
-  }
+  }, [loading, session, settings]);
 
   async function updateSettings() {
     try {
@@ -119,9 +137,6 @@ export default function Dashboard({ session }) {
 
       toast.success('Settings saved successfully!');
       setShowCode(true);
-      
-      // Reinitialize widget with new settings
-      initializeWidget();
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Error saving settings. Please try again.');
@@ -134,8 +149,15 @@ export default function Dashboard({ session }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      // Remove widget before signing out
+      const existingWidget = document.querySelector('.chat-widget');
+      if (existingWidget) {
+        existingWidget.remove();
+      }
+      
       toast.success('Signed out successfully');
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error('Error signing out');
@@ -143,11 +165,15 @@ export default function Dashboard({ session }) {
   };
 
   const getWidgetCode = () => {
+    const baseUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+      ? window.location.origin
+      : 'https://chatwidgetai.netlify.app';
+
     return `<!-- AI Chat Widget -->
 <script>
 (function() {
   var script = document.createElement('script');
-  script.src = 'https://chatwidgetai.netlify.app/chat.js';
+  script.src = '${baseUrl}/chat.js';
   script.async = true;
   script.crossOrigin = "anonymous";
   script.onload = function() {
@@ -169,6 +195,14 @@ export default function Dashboard({ session }) {
       toast.error('Failed to copy code. Please try selecting and copying manually.');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white py-12 px-4 sm:px-6 lg:px-8">
