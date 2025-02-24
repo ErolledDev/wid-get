@@ -17,71 +17,73 @@ export default function Dashboard({ session }) {
   const [showCode, setShowCode] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
 
+  // Load settings on mount and when session changes
   useEffect(() => {
     let mounted = true;
 
     async function loadSettings() {
       try {
-        if (!session?.user?.id) return;
+        if (!session?.user?.id) {
+          setLoading(false);
+          return;
+        }
 
-        const { data, error } = await supabase
+        // Fetch existing settings
+        const { data: existingSettings, error: fetchError } = await supabase
           .from('widget_settings')
           .select('*')
           .eq('user_id', session.user.id)
           .single();
 
-        if (!mounted) return;
-
-        if (error) {
-          console.error('Error fetching settings:', error);
-          if (error.code === 'PGRST116') { // Not found error
-            // Create default settings
-            const defaultSettings = {
-              user_id: session.user.id,
-              primary_color: '#2563eb',
-              business_name: '',
-              business_info: '',
-              sales_rep_name: ''
-            };
-
-            const { error: insertError } = await supabase
-              .from('widget_settings')
-              .upsert([defaultSettings], {
-                onConflict: 'user_id',
-                returning: 'representation'
-              });
-
-            if (insertError) {
-              console.error('Error creating default settings:', insertError);
-              throw insertError;
-            }
-            
-            setSettings({
-              primaryColor: defaultSettings.primary_color,
-              businessName: defaultSettings.business_name,
-              businessInfo: defaultSettings.business_info,
-              salesRepName: defaultSettings.sales_rep_name
-            });
-          } else {
-            throw error;
-          }
-        } else if (data) {
-          setSettings({
-            primaryColor: data.primary_color || '#2563eb',
-            businessName: data.business_name || '',
-            businessInfo: data.business_info || '',
-            salesRepName: data.sales_rep_name || ''
-          });
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          throw fetchError;
         }
-        
-        setShowCode(true);
+
+        if (!existingSettings) {
+          // Create new settings if none exist
+          const defaultSettings = {
+            user_id: session.user.id,
+            primary_color: '#2563eb',
+            business_name: '',
+            business_info: '',
+            sales_rep_name: ''
+          };
+
+          const { data: newSettings, error: insertError } = await supabase
+            .from('widget_settings')
+            .insert([defaultSettings])
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+
+          if (mounted) {
+            setSettings({
+              primaryColor: newSettings.primary_color,
+              businessName: newSettings.business_name,
+              businessInfo: newSettings.business_info,
+              salesRepName: newSettings.sales_rep_name
+            });
+          }
+        } else {
+          if (mounted) {
+            setSettings({
+              primaryColor: existingSettings.primary_color,
+              businessName: existingSettings.business_name,
+              businessInfo: existingSettings.business_info,
+              salesRepName: existingSettings.sales_rep_name
+            });
+          }
+        }
+
+        if (mounted) {
+          setShowCode(true);
+          setLoading(false);
+        }
       } catch (error) {
         console.error('Error loading settings:', error);
         if (mounted) {
-          toast.error('Error loading settings. Please try again.');
-        }
-      } finally {
-        if (mounted) {
+          toast.error('Failed to load settings. Please try again.');
           setLoading(false);
         }
       }
@@ -91,24 +93,17 @@ export default function Dashboard({ session }) {
 
     return () => {
       mounted = false;
-      // Cleanup widget on unmount
-      const existingWidget = document.querySelector('.chat-widget');
-      if (existingWidget) {
-        existingWidget.remove();
-      }
+      const widget = document.querySelector('.chat-widget');
+      if (widget) widget.remove();
     };
   }, [session]);
 
-  // Initialize widget when settings change
+  // Update widget when settings change
   useEffect(() => {
     if (!loading && session?.user?.id) {
-      // Remove existing widget if any
-      const existingWidget = document.querySelector('.chat-widget');
-      if (existingWidget) {
-        existingWidget.remove();
-      }
+      const widget = document.querySelector('.chat-widget');
+      if (widget) widget.remove();
 
-      // Initialize new widget with current settings
       const baseUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
         ? window.location.origin
         : 'https://chatwidgetai.netlify.app';
@@ -129,8 +124,9 @@ export default function Dashboard({ session }) {
   async function updateSettings() {
     try {
       setLoading(true);
-      
-      const { error } = await supabase
+
+      // Update settings in database
+      const { error: updateError } = await supabase
         .from('widget_settings')
         .upsert({
           user_id: session.user.id,
@@ -138,41 +134,31 @@ export default function Dashboard({ session }) {
           business_name: settings.businessName,
           business_info: settings.businessInfo,
           sales_rep_name: settings.salesRepName
-        }, {
-          onConflict: 'user_id',
-          returning: 'minimal'
         });
 
-      if (error) {
-        console.error('Error saving settings:', error);
-        throw error;
-      }
+      if (updateError) throw updateError;
 
-      // Verify the settings were saved by fetching them again
-      const { data: verifyData, error: verifyError } = await supabase
+      // Verify the update
+      const { data: verifiedSettings, error: verifyError } = await supabase
         .from('widget_settings')
         .select('*')
         .eq('user_id', session.user.id)
         .single();
 
-      if (verifyError) {
-        console.error('Error verifying settings:', verifyError);
-        throw verifyError;
-      }
+      if (verifyError) throw verifyError;
 
       // Update local state with verified data
       setSettings({
-        primaryColor: verifyData.primary_color,
-        businessName: verifyData.business_name,
-        businessInfo: verifyData.business_info,
-        salesRepName: verifyData.sales_rep_name
+        primaryColor: verifiedSettings.primary_color,
+        businessName: verifiedSettings.business_name,
+        businessInfo: verifiedSettings.business_info,
+        salesRepName: verifiedSettings.sales_rep_name
       });
 
       toast.success('Settings saved successfully!');
-      setShowCode(true);
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Error saving settings. Please try again.');
+      toast.error('Failed to save settings. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -183,11 +169,8 @@ export default function Dashboard({ session }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      // Remove widget before signing out
-      const existingWidget = document.querySelector('.chat-widget');
-      if (existingWidget) {
-        existingWidget.remove();
-      }
+      const widget = document.querySelector('.chat-widget');
+      if (widget) widget.remove();
       
       toast.success('Signed out successfully');
       navigate('/', { replace: true });
@@ -275,7 +258,7 @@ export default function Dashboard({ session }) {
                           <div className="fixed inset-0" onClick={() => setShowColorPicker(false)} />
                           <HexColorPicker
                             color={settings.primaryColor}
-                            onChange={(color) => setSettings({ ...settings, primaryColor: color })}
+                            onChange={(color) => setSettings(prev => ({ ...prev, primaryColor: color }))}
                           />
                         </div>
                       )}
@@ -289,7 +272,7 @@ export default function Dashboard({ session }) {
                     <input
                       type="text"
                       value={settings.businessName}
-                      onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                      onChange={(e) => setSettings(prev => ({ ...prev, businessName: e.target.value }))}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter your business name"
                     />
@@ -302,7 +285,7 @@ export default function Dashboard({ session }) {
                     <textarea
                       rows={3}
                       value={settings.businessInfo}
-                      onChange={(e) => setSettings({ ...settings, businessInfo: e.target.value })}
+                      onChange={(e) => setSettings(prev => ({ ...prev, businessInfo: e.target.value }))}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter information about your business..."
                     />
@@ -315,7 +298,7 @@ export default function Dashboard({ session }) {
                     <input
                       type="text"
                       value={settings.salesRepName}
-                      onChange={(e) => setSettings({ ...settings, salesRepName: e.target.value })}
+                      onChange={(e) => setSettings(prev => ({ ...prev, salesRepName: e.target.value }))}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter sales rep name"
                     />
