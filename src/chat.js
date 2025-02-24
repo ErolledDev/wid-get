@@ -60,7 +60,7 @@ class ChatWidget {
       
       const settings = await response.json();
       
-      // Update options with fetched settings
+      // Update options with fetched settings, keeping defaults if settings are empty
       this.options = {
         ...this.options,
         primaryColor: settings.primary_color || this.options.primaryColor,

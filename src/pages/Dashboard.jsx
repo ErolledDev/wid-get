@@ -33,6 +33,7 @@ export default function Dashboard({ session }) {
         if (!mounted) return;
 
         if (error) {
+          console.error('Error fetching settings:', error);
           if (error.code === 'PGRST116') { // Not found error
             // Create default settings
             const defaultSettings = {
@@ -45,9 +46,15 @@ export default function Dashboard({ session }) {
 
             const { error: insertError } = await supabase
               .from('widget_settings')
-              .insert(defaultSettings);
+              .upsert([defaultSettings], {
+                onConflict: 'user_id',
+                returning: 'representation'
+              });
 
-            if (insertError) throw insertError;
+            if (insertError) {
+              console.error('Error creating default settings:', insertError);
+              throw insertError;
+            }
             
             setSettings({
               primaryColor: defaultSettings.primary_color,
@@ -131,9 +138,35 @@ export default function Dashboard({ session }) {
           business_name: settings.businessName,
           business_info: settings.businessInfo,
           sales_rep_name: settings.salesRepName
+        }, {
+          onConflict: 'user_id',
+          returning: 'minimal'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving settings:', error);
+        throw error;
+      }
+
+      // Verify the settings were saved by fetching them again
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('widget_settings')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('Error verifying settings:', verifyError);
+        throw verifyError;
+      }
+
+      // Update local state with verified data
+      setSettings({
+        primaryColor: verifyData.primary_color,
+        businessName: verifyData.business_name,
+        businessInfo: verifyData.business_info,
+        salesRepName: verifyData.sales_rep_name
+      });
 
       toast.success('Settings saved successfully!');
       setShowCode(true);
