@@ -1,9 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini with API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-// CORS headers for all responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -31,16 +27,6 @@ export async function handler(event) {
   }
 
   try {
-    const { messages, settings } = JSON.parse(event.body);
-    
-    if (!messages || !Array.isArray(messages)) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Invalid messages format. Expected an array.' })
-      };
-    }
-
     // Check for valid API key
     if (!process.env.GEMINI_API_KEY) {
       return {
@@ -49,6 +35,19 @@ export async function handler(event) {
         body: JSON.stringify({
           error: 'Missing Gemini API key. Please check your environment variables.'
         })
+      };
+    }
+
+    // Initialize Gemini with API key
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    const { messages, settings } = JSON.parse(event.body);
+    
+    if (!messages || !Array.isArray(messages)) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Invalid messages format. Expected an array.' })
       };
     }
 
@@ -132,7 +131,7 @@ User message: ${lastMessage}`;
         statusCode: 500,
         headers: corsHeaders,
         body: JSON.stringify({ 
-          error: 'Error communicating with Gemini API. Please check your API key and try again.',
+          error: 'Error communicating with Gemini API',
           details: modelError.message 
         })
       };
