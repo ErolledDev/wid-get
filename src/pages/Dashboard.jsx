@@ -24,66 +24,57 @@ export default function Dashboard({ session }) {
     }
   }, [session]);
 
-  // Initialize or update widget when settings change
+  // Initialize widget only once after settings are loaded
   useEffect(() => {
-    if (!loading && session?.user?.id) {
-      // Remove existing widget if any
-      const existingWidget = document.querySelector('.chat-widget');
-      if (existingWidget) {
-        existingWidget.remove();
-      }
+    if (!loading && session?.user?.id && !widgetInstance) {
+      initializeWidget();
+    }
+  }, [loading, session]);
 
-      // Initialize new widget with current settings
-      if (window.ChatWidget) {
+  const initializeWidget = () => {
+    // Remove existing widget if any
+    const existingWidget = document.querySelector('.chat-widget');
+    if (existingWidget) {
+      existingWidget.remove();
+    }
+
+    // Initialize new widget with current settings
+    if (window.ChatWidget) {
+      const widget = new window.ChatWidget({
+        uid: session.user.id,
+        ...settings
+      });
+      setWidgetInstance(widget);
+    } else {
+      // Load the widget script if not already loaded
+      const script = document.createElement('script');
+      script.src = '/src/chat.js';
+      script.type = 'module';
+      script.onload = () => {
         const widget = new window.ChatWidget({
           uid: session.user.id,
           ...settings
         });
         setWidgetInstance(widget);
-      } else {
-        // Load the widget script if not already loaded
-        const script = document.createElement('script');
-        script.src = '/src/chat.js';
-        script.type = 'module';
-        script.onload = () => {
-          const widget = new window.ChatWidget({
-            uid: session.user.id,
-            ...settings
-          });
-          setWidgetInstance(widget);
-        };
-        document.head.appendChild(script);
-      }
+      };
+      document.head.appendChild(script);
     }
-  }, [settings, session, loading]);
+  };
 
   async function getSettings() {
     try {
       setLoading(true);
       
-      // First, ensure we have a settings record
-      const { error: upsertError } = await supabase
-        .from('widget_settings')
-        .upsert({
-          user_id: session.user.id,
-          primary_color: settings.primaryColor,
-          business_name: settings.businessName,
-          business_info: settings.businessInfo,
-          sales_rep_name: settings.salesRepName
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (upsertError) throw upsertError;
-
-      // Then fetch the settings
+      // Fetch the settings first
       const { data, error } = await supabase
         .from('widget_settings')
         .select('primary_color, business_name, business_info, sales_rep_name')
         .eq('user_id', session.user.id)
         .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') { // Not found error
+        throw error;
+      }
 
       if (data) {
         setSettings({
@@ -93,6 +84,19 @@ export default function Dashboard({ session }) {
           salesRepName: data.sales_rep_name || ''
         });
         setShowCode(true);
+      } else {
+        // If no settings exist, create default settings
+        const { error: upsertError } = await supabase
+          .from('widget_settings')
+          .insert({
+            user_id: session.user.id,
+            primary_color: settings.primaryColor,
+            business_name: settings.businessName,
+            business_info: settings.businessInfo,
+            sales_rep_name: settings.salesRepName
+          });
+
+        if (upsertError) throw upsertError;
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -120,7 +124,7 @@ export default function Dashboard({ session }) {
 
       if (error) throw error;
 
-      // Update widget with new settings
+      // Update widget with new settings only if it exists
       if (widgetInstance) {
         widgetInstance.options = {
           ...widgetInstance.options,
@@ -220,13 +224,7 @@ export default function Dashboard({ session }) {
                           <div className="fixed inset-0" onClick={() => setShowColorPicker(false)} />
                           <HexColorPicker
                             color={settings.primaryColor}
-                            onChange={(color) => {
-                              setSettings({ ...settings, primaryColor: color });
-                              if (widgetInstance) {
-                                widgetInstance.options.primaryColor = color;
-                                widgetInstance.updateWidgetStyles();
-                              }
-                            }}
+                            onChange={(color) => setSettings({ ...settings, primaryColor: color })}
                           />
                         </div>
                       )}
@@ -240,13 +238,7 @@ export default function Dashboard({ session }) {
                     <input
                       type="text"
                       value={settings.businessName}
-                      onChange={(e) => {
-                        setSettings({ ...settings, businessName: e.target.value });
-                        if (widgetInstance) {
-                          widgetInstance.options.businessName = e.target.value;
-                          widgetInstance.updateWidgetContent();
-                        }
-                      }}
+                      onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter your business name"
                     />
@@ -259,12 +251,7 @@ export default function Dashboard({ session }) {
                     <textarea
                       rows={3}
                       value={settings.businessInfo}
-                      onChange={(e) => {
-                        setSettings({ ...settings, businessInfo: e.target.value });
-                        if (widgetInstance) {
-                          widgetInstance.options.businessInfo = e.target.value;
-                        }
-                      }}
+                      onChange={(e) => setSettings({ ...settings, businessInfo: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter information about your business..."
                     />
@@ -277,13 +264,7 @@ export default function Dashboard({ session }) {
                     <input
                       type="text"
                       value={settings.salesRepName}
-                      onChange={(e) => {
-                        setSettings({ ...settings, salesRepName: e.target.value });
-                        if (widgetInstance) {
-                          widgetInstance.options.salesRepName = e.target.value;
-                          widgetInstance.updateWidgetContent();
-                        }
-                      }}
+                      onChange={(e) => setSettings({ ...settings, salesRepName: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter sales rep name"
                     />
