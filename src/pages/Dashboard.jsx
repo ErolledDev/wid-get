@@ -153,12 +153,14 @@ export default function Dashboard({ session }) {
   };
 
   const getWidgetCode = () => {
+    const currentOrigin = window.location.origin;
+    const crossOriginAttr = currentOrigin.includes('localhost') ? '' : ' crossorigin="anonymous"';
     return `<!-- AI Chat Widget -->
 <script>
 (function() {
   var script = document.createElement('script');
-  script.src = '${window.location.origin}/chat.js';
-  script.async = true;
+  script.src = '${currentOrigin}/chat.js';
+  script.async = true;${crossOriginAttr}
   script.onload = function() {
     new ChatWidget({
       uid: '${session.user.id}'

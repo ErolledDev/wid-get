@@ -10,7 +10,9 @@ export default defineConfig({
         chat: './src/chat.js'
       },
       output: {
-        entryFileNames: '[name].[hash].js',
+        entryFileNames: chunkInfo => {
+          return chunkInfo.name === 'chat' ? 'chat.js' : '[name].[hash].js';
+        },
         chunkFileNames: 'chunks/[name].[hash].js',
         assetFileNames: 'assets/[name].[hash].[ext]',
         format: 'es',
@@ -29,6 +31,12 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
-    host: true
+    host: true,
+    cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    }
   }
 });

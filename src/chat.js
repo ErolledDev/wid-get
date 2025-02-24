@@ -33,13 +33,6 @@ class ChatWidget {
     
     // Fetch settings from API with retry logic
     this.fetchSettingsWithRetry();
-
-    // Auto-open after delay
-    setTimeout(() => {
-      if (this.isMinimized) {
-        this.toggleMinimize();
-      }
-    }, 3000);
   }
 
   async fetchSettingsWithRetry() {
@@ -95,6 +88,16 @@ class ChatWidget {
     this.widget = document.createElement('div');
     this.widget.className = 'chat-widget minimized';
     document.body.appendChild(this.widget);
+
+    // Create minimize button container
+    const header = document.createElement('div');
+    header.className = 'chat-header';
+    this.widget.appendChild(header);
+
+    const minimizeButton = document.createElement('button');
+    minimizeButton.className = 'minimize-button';
+    minimizeButton.textContent = this.isMinimized ? '+' : '−';
+    header.appendChild(minimizeButton);
   }
 
   init() {
@@ -104,6 +107,13 @@ class ChatWidget {
     this.createWidgetContent();
     this.attachEventListeners();
     this.initialized = true;
+
+    // Auto-open after delay
+    setTimeout(() => {
+      if (this.isMinimized) {
+        this.toggleMinimize();
+      }
+    }, 3000);
   }
 
   updateWidgetStyles() {
@@ -144,6 +154,12 @@ class ChatWidget {
         ? `Hello! I'm ${this.options.salesRepName} from ${this.options.businessName}. How can I help you today?`
         : `Hello! Welcome to ${this.options.businessName}. How can I help you today?`;
       messages[0].textContent = greeting;
+    }
+
+    // Update minimize button
+    const minimizeButton = this.widget.querySelector('.minimize-button');
+    if (minimizeButton) {
+      minimizeButton.textContent = this.isMinimized ? '+' : '−';
     }
   }
 
