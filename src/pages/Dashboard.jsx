@@ -12,7 +12,7 @@ export default function Dashboard({ session }) {
     primaryColor: '#2563eb',
     businessName: '',
     businessInfo: '',
-    salesRepName: '',
+    salesRepName: ''
   });
   const [showCode, setShowCode] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -23,24 +23,57 @@ export default function Dashboard({ session }) {
     }
   }, [session]);
 
+  // Initialize chat widget when settings change
+  useEffect(() => {
+    if (window.ChatWidget && session?.user?.id && !loading) {
+      // Remove existing widget if any
+      const existingWidget = document.querySelector('.chat-widget');
+      if (existingWidget) {
+        existingWidget.remove();
+      }
+
+      // Initialize new widget with current settings
+      new window.ChatWidget({
+        uid: session.user.id,
+        ...settings
+      });
+    }
+  }, [settings, session, loading]);
+
   async function getSettings() {
     try {
       setLoading(true);
       
+      // First, ensure we have a settings record
+      const { error: upsertError } = await supabase
+        .from('widget_settings')
+        .upsert({
+          user_id: session.user.id,
+          primary_color: settings.primaryColor,
+          business_name: settings.businessName,
+          business_info: settings.businessInfo,
+          sales_rep_name: settings.salesRepName
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (upsertError) throw upsertError;
+
+      // Then fetch the settings
       const { data, error } = await supabase
         .from('widget_settings')
-        .select('*')
+        .select('primary_color, business_name, business_info, sales_rep_name')
         .eq('user_id', session.user.id)
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
 
       if (data) {
         setSettings({
-          primaryColor: data.primary_color,
-          businessName: data.business_name,
-          businessInfo: data.business_info,
-          salesRepName: data.sales_rep_name,
+          primaryColor: data.primary_color || '#2563eb',
+          businessName: data.business_name || '',
+          businessInfo: data.business_info || '',
+          salesRepName: data.sales_rep_name || ''
         });
         setShowCode(true);
       }
@@ -63,7 +96,9 @@ export default function Dashboard({ session }) {
           primary_color: settings.primaryColor,
           business_name: settings.businessName,
           business_info: settings.businessInfo,
-          sales_rep_name: settings.salesRepName,
+          sales_rep_name: settings.salesRepName
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;
@@ -134,67 +169,73 @@ export default function Dashboard({ session }) {
           </div>
 
           <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Primary Color
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowColorPicker(!showColorPicker)}
-                    className="w-full h-10 rounded-lg border shadow-sm"
-                    style={{ backgroundColor: settings.primaryColor }}
-                  />
-                  {showColorPicker && (
-                    <div className="absolute z-10 mt-2">
-                      <div className="fixed inset-0" onClick={() => setShowColorPicker(false)} />
-                      <HexColorPicker
-                        color={settings.primaryColor}
-                        onChange={(color) => setSettings({ ...settings, primaryColor: color })}
+            <div className="grid grid-cols-1 gap-6">
+              {/* Basic Settings */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Basic Settings</h2>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Primary Color
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowColorPicker(!showColorPicker)}
+                        className="w-full h-10 rounded-lg border shadow-sm"
+                        style={{ backgroundColor: settings.primaryColor }}
                       />
+                      {showColorPicker && (
+                        <div className="absolute z-10 mt-2">
+                          <div className="fixed inset-0" onClick={() => setShowColorPicker(false)} />
+                          <HexColorPicker
+                            color={settings.primaryColor}
+                            onChange={(color) => setSettings({ ...settings, primaryColor: color })}
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Business Name
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.businessName}
+                      onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter your business name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Business Information
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={settings.businessInfo}
+                      onChange={(e) => setSettings({ ...settings, businessInfo: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter information about your business..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Sales Representative Name
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.salesRepName}
+                      onChange={(e) => setSettings({ ...settings, salesRepName: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter sales rep name"
+                    />
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Name
-                </label>
-                <input
-                  type="text"
-                  value={settings.businessName}
-                  onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Enter your business name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sales Representative Name
-                </label>
-                <input
-                  type="text"
-                  value={settings.salesRepName}
-                  onChange={(e) => setSettings({ ...settings, salesRepName: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Enter sales rep name"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Information
-                </label>
-                <textarea
-                  rows={4}
-                  value={settings.businessInfo}
-                  onChange={(e) => setSettings({ ...settings, businessInfo: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Enter information about your business, products, services, and any specific instructions for the AI..."
-                />
               </div>
             </div>
 
