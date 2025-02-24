@@ -10,24 +10,23 @@ class ChatWidget {
       return;
     }
 
-    console.log('Initializing ChatWidget with options:', options); // Debug log
-
     this.options = {
       position: 'bottom-right',
       primaryColor: '#2563eb',
       businessName: 'AI Sales Assistant',
       businessInfo: '',
-      salesRepName: ''
+      salesRepName: '',
+      ...options // Allow overriding defaults with passed options
     };
     
     this.messages = [];
-    this.isMinimized = true; // Start minimized
+    this.isMinimized = true;
     this.initialized = false;
     this.uid = options.uid;
     this.unreadCount = 0;
     this.retryCount = 0;
     this.maxRetries = 3;
-    this.retryDelay = 1000; // Start with 1 second delay
+    this.retryDelay = 1000;
 
     // Create base widget structure
     this.createBaseWidget();
@@ -45,9 +44,7 @@ class ChatWidget {
 
   async fetchSettingsWithRetry() {
     try {
-      console.log('Fetching settings for uid:', this.uid); // Debug log
-
-      const response = await fetch(`/.netlify/functions/settings?uid=${this.uid}`, {
+      const response = await fetch(`${window.location.origin}/.netlify/functions/settings?uid=${this.uid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -59,8 +56,7 @@ class ChatWidget {
       }
       
       const settings = await response.json();
-      console.log('Received settings:', settings); // Debug log
-
+      
       this.options = {
         ...this.options,
         primaryColor: settings.primary_color || this.options.primaryColor,
@@ -69,10 +65,8 @@ class ChatWidget {
         salesRepName: settings.sales_rep_name || this.options.salesRepName
       };
       
-      // Reset retry count on success
       this.retryCount = 0;
       
-      // Update or initialize the widget
       if (this.initialized) {
         this.updateWidgetStyles();
         this.updateWidgetContent();
@@ -82,19 +76,14 @@ class ChatWidget {
     } catch (error) {
       console.error('Error fetching widget settings:', error);
       
-      // Implement exponential backoff for retries
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
         const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
-        
-        console.log(`Retrying in ${delay}ms... (Attempt ${this.retryCount} of ${this.maxRetries})`);
         
         setTimeout(() => {
           this.fetchSettingsWithRetry();
         }, delay);
       } else {
-        // Initialize with defaults if all retries fail
-        console.warn('Failed to fetch settings after all retries, initializing with defaults');
         if (!this.initialized) {
           this.init();
         }
@@ -103,7 +92,6 @@ class ChatWidget {
   }
 
   createBaseWidget() {
-    console.log('Creating base widget'); // Debug log
     this.widget = document.createElement('div');
     this.widget.className = 'chat-widget minimized';
     document.body.appendChild(this.widget);
@@ -112,7 +100,6 @@ class ChatWidget {
   init() {
     if (typeof window === 'undefined' || this.initialized) return;
     
-    console.log('Initializing widget'); // Debug log
     this.createStyles();
     this.createWidgetContent();
     this.attachEventListeners();
@@ -120,43 +107,47 @@ class ChatWidget {
   }
 
   updateWidgetStyles() {
-    // Remove old styles
     const oldStyle = document.getElementById('chat-widget-styles');
     if (oldStyle) {
       oldStyle.remove();
     }
-    // Create new styles
     this.createStyles();
   }
 
   updateWidgetContent() {
-    // Update header text
+    if (!this.initialized) return;
+
     const headerText = this.widget.querySelector('.chat-header span');
     if (headerText) {
       headerText.textContent = this.options.businessName;
     }
 
-    // Update button colors
     const sendButton = this.widget.querySelector('.chat-input button');
     if (sendButton) {
       sendButton.style.backgroundColor = this.options.primaryColor;
     }
 
-    // Update header background
     const header = this.widget.querySelector('.chat-header');
     if (header) {
       header.style.backgroundColor = this.options.primaryColor;
     }
 
-    // Update user message bubbles
     const userMessages = this.widget.querySelectorAll('.message.user');
     userMessages.forEach(msg => {
       msg.style.backgroundColor = this.options.primaryColor;
     });
+
+    // Update greeting if it exists
+    const messages = this.widget.querySelectorAll('.message');
+    if (messages.length === 1 && messages[0].classList.contains('assistant')) {
+      const greeting = this.options.salesRepName 
+        ? `Hello! I'm ${this.options.salesRepName} from ${this.options.businessName}. How can I help you today?`
+        : `Hello! Welcome to ${this.options.businessName}. How can I help you today?`;
+      messages[0].textContent = greeting;
+    }
   }
 
   createStyles() {
-    console.log('Creating styles'); // Debug log
     const styles = document.createElement('style');
     styles.id = 'chat-widget-styles';
     styles.textContent = `
@@ -376,7 +367,6 @@ class ChatWidget {
   }
 
   createWidgetContent() {
-    console.log('Creating widget content'); // Debug log
     this.widget.innerHTML = `
       <div class="chat-header">
         <span>${this.options.businessName}</span>
@@ -403,7 +393,6 @@ class ChatWidget {
     this.typingIndicator = this.widget.querySelector('.typing-indicator');
     this.unreadCountElement = this.widget.querySelector('.unread-count');
 
-    // Add initial greeting after a short delay
     setTimeout(() => {
       const greeting = this.options.salesRepName 
         ? `Hello! I'm ${this.options.salesRepName} from ${this.options.businessName}. How can I help you today?`
@@ -414,7 +403,6 @@ class ChatWidget {
         content: greeting
       });
 
-      // Increment unread count if minimized
       if (this.isMinimized) {
         this.incrementUnreadCount();
       }
@@ -422,7 +410,6 @@ class ChatWidget {
   }
 
   attachEventListeners() {
-    console.log('Attaching event listeners'); // Debug log
     this.sendButton.addEventListener('click', () => this.sendMessage());
     this.input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -448,7 +435,6 @@ class ChatWidget {
     this.widget.querySelector('.minimize-button').textContent = this.isMinimized ? '+' : '−';
 
     if (!this.isMinimized) {
-      // Reset unread count when opening
       this.resetUnreadCount();
     }
   }
@@ -477,18 +463,12 @@ class ChatWidget {
     const content = this.input.value.trim();
     if (!content) return;
 
-    // Clear input
     this.input.value = '';
-
-    // Add user message
     this.addMessage({ role: 'user', content });
-
-    // Show typing indicator
     this.showTypingIndicator();
 
     try {
-      console.log('Sending message:', content); // Debug log
-      const response = await fetch('/.netlify/functions/chat', {
+      const response = await fetch(`${window.location.origin}/.netlify/functions/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -500,11 +480,9 @@ class ChatWidget {
             businessInfo: this.options.businessInfo,
             salesRepName: this.options.salesRepName
           }
-        }),
-        mode: 'cors'
+        })
       });
 
-      // Hide typing indicator
       this.hideTypingIndicator();
 
       if (!response.ok) {
@@ -512,21 +490,17 @@ class ChatWidget {
       }
 
       const data = await response.json();
-      console.log('Received response:', data); // Debug log
       
-      // Add AI response
       this.addMessage({
         role: 'assistant',
         content: data.response
       });
 
-      // Add to history
       this.messages.push(
         { role: 'user', content },
         { role: 'assistant', content: data.response }
       );
 
-      // Increment unread count if minimized
       if (this.isMinimized) {
         this.incrementUnreadCount();
       }
@@ -541,21 +515,18 @@ class ChatWidget {
   }
 
   addMessage({ role, content }) {
-    console.log('Adding message:', { role, content }); // Debug log
     const messageEl = document.createElement('div');
     messageEl.className = `message ${role}`;
     messageEl.textContent = content;
     this.messagesContainer.appendChild(messageEl);
     this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 
-    // Update message styling if it's a user message
     if (role === 'user') {
       messageEl.style.backgroundColor = this.options.primaryColor;
     }
   }
 }
 
-// Make ChatWidget available both as a module export and global variable
 if (typeof window !== 'undefined') {
   window.ChatWidget = ChatWidget;
 }

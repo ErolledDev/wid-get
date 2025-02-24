@@ -16,6 +16,7 @@ export default function Dashboard({ session }) {
   });
   const [showCode, setShowCode] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [widgetInstance, setWidgetInstance] = useState(null);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -23,9 +24,9 @@ export default function Dashboard({ session }) {
     }
   }, [session]);
 
-  // Initialize chat widget when settings change
+  // Initialize or update widget when settings change
   useEffect(() => {
-    if (window.ChatWidget && session?.user?.id && !loading) {
+    if (!loading && session?.user?.id) {
       // Remove existing widget if any
       const existingWidget = document.querySelector('.chat-widget');
       if (existingWidget) {
@@ -33,10 +34,26 @@ export default function Dashboard({ session }) {
       }
 
       // Initialize new widget with current settings
-      new window.ChatWidget({
-        uid: session.user.id,
-        ...settings
-      });
+      if (window.ChatWidget) {
+        const widget = new window.ChatWidget({
+          uid: session.user.id,
+          ...settings
+        });
+        setWidgetInstance(widget);
+      } else {
+        // Load the widget script if not already loaded
+        const script = document.createElement('script');
+        script.src = '/src/chat.js';
+        script.type = 'module';
+        script.onload = () => {
+          const widget = new window.ChatWidget({
+            uid: session.user.id,
+            ...settings
+          });
+          setWidgetInstance(widget);
+        };
+        document.head.appendChild(script);
+      }
     }
   }, [settings, session, loading]);
 
@@ -102,6 +119,17 @@ export default function Dashboard({ session }) {
         });
 
       if (error) throw error;
+
+      // Update widget with new settings
+      if (widgetInstance) {
+        widgetInstance.options = {
+          ...widgetInstance.options,
+          ...settings
+        };
+        widgetInstance.updateWidgetStyles();
+        widgetInstance.updateWidgetContent();
+      }
+
       toast.success('Settings saved successfully!');
       setShowCode(true);
     } catch (error) {
@@ -129,7 +157,7 @@ export default function Dashboard({ session }) {
 <script>
 (function() {
   var script = document.createElement('script');
-  script.src = 'https://chatwidgetai.netlify.app/chat.js';
+  script.src = '${window.location.origin}/chat.js';
   script.async = true;
   script.onload = function() {
     new ChatWidget({
@@ -190,7 +218,13 @@ export default function Dashboard({ session }) {
                           <div className="fixed inset-0" onClick={() => setShowColorPicker(false)} />
                           <HexColorPicker
                             color={settings.primaryColor}
-                            onChange={(color) => setSettings({ ...settings, primaryColor: color })}
+                            onChange={(color) => {
+                              setSettings({ ...settings, primaryColor: color });
+                              if (widgetInstance) {
+                                widgetInstance.options.primaryColor = color;
+                                widgetInstance.updateWidgetStyles();
+                              }
+                            }}
                           />
                         </div>
                       )}
@@ -204,7 +238,13 @@ export default function Dashboard({ session }) {
                     <input
                       type="text"
                       value={settings.businessName}
-                      onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                      onChange={(e) => {
+                        setSettings({ ...settings, businessName: e.target.value });
+                        if (widgetInstance) {
+                          widgetInstance.options.businessName = e.target.value;
+                          widgetInstance.updateWidgetContent();
+                        }
+                      }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter your business name"
                     />
@@ -217,7 +257,12 @@ export default function Dashboard({ session }) {
                     <textarea
                       rows={3}
                       value={settings.businessInfo}
-                      onChange={(e) => setSettings({ ...settings, businessInfo: e.target.value })}
+                      onChange={(e) => {
+                        setSettings({ ...settings, businessInfo: e.target.value });
+                        if (widgetInstance) {
+                          widgetInstance.options.businessInfo = e.target.value;
+                        }
+                      }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter information about your business..."
                     />
@@ -230,7 +275,13 @@ export default function Dashboard({ session }) {
                     <input
                       type="text"
                       value={settings.salesRepName}
-                      onChange={(e) => setSettings({ ...settings, salesRepName: e.target.value })}
+                      onChange={(e) => {
+                        setSettings({ ...settings, salesRepName: e.target.value });
+                        if (widgetInstance) {
+                          widgetInstance.options.salesRepName = e.target.value;
+                          widgetInstance.updateWidgetContent();
+                        }
+                      }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Enter sales rep name"
                     />
