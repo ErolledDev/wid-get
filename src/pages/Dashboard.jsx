@@ -24,12 +24,12 @@ export default function Dashboard({ session }) {
     }
   }, [session]);
 
-  // Initialize widget only once after settings are loaded
+  // Initialize widget only after settings are loaded
   useEffect(() => {
-    if (!loading && session?.user?.id && !widgetInstance) {
+    if (!loading && session?.user?.id) {
       initializeWidget();
     }
-  }, [loading, session]);
+  }, [loading, session, settings]); // Add settings as dependency
 
   const initializeWidget = () => {
     // Remove existing widget if any
@@ -39,65 +39,60 @@ export default function Dashboard({ session }) {
     }
 
     // Initialize new widget with current settings
-    if (window.ChatWidget) {
-      const widget = new window.ChatWidget({
-        uid: session.user.id,
-        ...settings
-      });
-      setWidgetInstance(widget);
-    } else {
-      // Load the widget script if not already loaded
-      const script = document.createElement('script');
-      script.src = '/src/chat.js';
-      script.type = 'module';
-      script.onload = () => {
-        const widget = new window.ChatWidget({
-          uid: session.user.id,
-          ...settings
-        });
-        setWidgetInstance(widget);
-      };
-      document.head.appendChild(script);
-    }
+    const widget = new window.ChatWidget({
+      uid: session.user.id,
+      ...settings
+    });
+    setWidgetInstance(widget);
   };
 
   async function getSettings() {
     try {
       setLoading(true);
       
-      // Fetch the settings first
       const { data, error } = await supabase
         .from('widget_settings')
-        .select('primary_color, business_name, business_info, sales_rep_name')
+        .select('*')
         .eq('user_id', session.user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // Not found error
-        throw error;
-      }
+      if (error) {
+        if (error.code === 'PGRST116') { // Not found error
+          // Create default settings
+          const defaultSettings = {
+            user_id: session.user.id,
+            primary_color: settings.primaryColor,
+            business_name: settings.businessName,
+            business_info: settings.businessInfo,
+            sales_rep_name: settings.salesRepName
+          };
 
-      if (data) {
+          const { error: insertError } = await supabase
+            .from('widget_settings')
+            .insert(defaultSettings);
+
+          if (insertError) throw insertError;
+          
+          // Use default settings
+          setSettings({
+            primaryColor: defaultSettings.primary_color,
+            businessName: defaultSettings.business_name,
+            businessInfo: defaultSettings.business_info,
+            salesRepName: defaultSettings.sales_rep_name
+          });
+        } else {
+          throw error;
+        }
+      } else if (data) {
         setSettings({
           primaryColor: data.primary_color || '#2563eb',
           businessName: data.business_name || '',
           businessInfo: data.business_info || '',
           salesRepName: data.sales_rep_name || ''
         });
-        setShowCode(true);
-      } else {
-        // If no settings exist, create default settings
-        const { error: upsertError } = await supabase
-          .from('widget_settings')
-          .insert({
-            user_id: session.user.id,
-            primary_color: settings.primaryColor,
-            business_name: settings.businessName,
-            business_info: settings.businessInfo,
-            sales_rep_name: settings.salesRepName
-          });
-
-        if (upsertError) throw upsertError;
       }
+      
+      setShowCode(true);
     } catch (error) {
       console.error('Error loading settings:', error);
       toast.error('Error loading settings. Please try again.');
@@ -118,24 +113,15 @@ export default function Dashboard({ session }) {
           business_name: settings.businessName,
           business_info: settings.businessInfo,
           sales_rep_name: settings.salesRepName
-        }, {
-          onConflict: 'user_id'
         });
 
       if (error) throw error;
 
-      // Update widget with new settings only if it exists
-      if (widgetInstance) {
-        widgetInstance.options = {
-          ...widgetInstance.options,
-          ...settings
-        };
-        widgetInstance.updateWidgetStyles();
-        widgetInstance.updateWidgetContent();
-      }
-
       toast.success('Settings saved successfully!');
       setShowCode(true);
+      
+      // Reinitialize widget with new settings
+      initializeWidget();
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Error saving settings. Please try again.');
@@ -157,14 +143,13 @@ export default function Dashboard({ session }) {
   };
 
   const getWidgetCode = () => {
-    const currentOrigin = window.location.origin;
-    const crossOriginAttr = currentOrigin.includes('localhost') ? '' : ' crossorigin="anonymous"';
     return `<!-- AI Chat Widget -->
 <script>
 (function() {
   var script = document.createElement('script');
-  script.src = '${currentOrigin}/chat.js';
-  script.async = true;${crossOriginAttr}
+  script.src = 'https://chatwidgetai.netlify.app/chat.js';
+  script.async = true;
+  script.crossOrigin = "anonymous";
   script.onload = function() {
     new ChatWidget({
       uid: '${session.user.id}'
@@ -204,7 +189,6 @@ export default function Dashboard({ session }) {
 
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 gap-6">
-              {/* Basic Settings */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Basic Settings</h2>
                 <div className="grid grid-cols-1 gap-4">
