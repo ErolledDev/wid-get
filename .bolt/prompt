@@ -4,4 +4,4 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 GEMINI_API_KEY=aaL0nhEEijZJDR7IaYmQjZKwseCdifzzf
 
-## this keys are already save in my netlify environement
+## this keys are already save in my netlify environement so if theres error in my bolt just look here
