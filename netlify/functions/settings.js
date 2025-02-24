@@ -1,9 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Initialize Supabase client with proper error handling
+const initSupabase = () => {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error('Missing required Supabase environment variables');
+  }
+
+  return createClient(url, key);
+};
+
+const supabase = initSupabase();
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -15,6 +24,12 @@ const corsHeaders = {
 };
 
 export async function handler(event) {
+  console.log('Settings function called with event:', {
+    method: event.httpMethod,
+    uid: event.queryStringParameters?.uid,
+    headers: event.headers
+  });
+
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -32,7 +47,7 @@ export async function handler(event) {
     };
   }
 
-  const uid = event.queryStringParameters.uid;
+  const uid = event.queryStringParameters?.uid;
   if (!uid) {
     return {
       statusCode: 400,
@@ -42,15 +57,31 @@ export async function handler(event) {
   }
 
   try {
+    console.log('Fetching settings for uid:', uid);
+    console.log('Using Supabase URL:', process.env.VITE_SUPABASE_URL);
+    console.log('Using key type:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service role' : 'anon');
+    
     const { data, error } = await supabase
       .from('widget_settings')
       .select('*')
       .eq('user_id', uid)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      return {
+        statusCode: 500,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          error: 'Database error',
+          details: error.message,
+          code: error.code
+        })
+      };
+    }
 
     if (!data) {
+      console.log('No settings found for uid:', uid);
       return {
         statusCode: 404,
         headers: corsHeaders,
@@ -58,19 +89,21 @@ export async function handler(event) {
       };
     }
 
+    console.log('Settings found:', data);
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify(data)
     };
   } catch (error) {
-    console.error('Error fetching settings:', error);
+    console.error('Error in settings function:', error);
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       })
     };
   }

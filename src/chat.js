@@ -37,7 +37,15 @@ class ChatWidget {
 
   async fetchSettingsWithRetry() {
     try {
-      const response = await fetch(`${window.location.origin}/.netlify/functions/settings?uid=${this.uid}`, {
+      // Use the correct production URL for settings
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? window.location.origin 
+        : 'https://chatwidgetai.netlify.app';
+      
+      const settingsUrl = `${baseUrl}/.netlify/functions/settings`;
+      console.log('Fetching settings from:', settingsUrl);
+      
+      const response = await fetch(`${settingsUrl}?uid=${this.uid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -45,10 +53,13 @@ class ChatWidget {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Settings fetch failed:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
       
       const settings = await response.json();
+      console.log('Received settings:', settings);
       
       this.options = {
         ...this.options,
@@ -72,11 +83,13 @@ class ChatWidget {
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
         const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
+        console.log(`Retrying in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})`);
         
         setTimeout(() => {
           this.fetchSettingsWithRetry();
         }, delay);
       } else {
+        console.log('Max retries reached, initializing with default settings');
         if (!this.initialized) {
           this.init();
         }
